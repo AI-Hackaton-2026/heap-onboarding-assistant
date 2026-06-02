@@ -1,37 +1,70 @@
-// Integrations overview placeholder — GitHub and Slack connection state.
+// Integrations overview — GitHub and Slack connection state. The GitHub card
+// reflects whether the user has a live GitHub session (provider_token captured
+// at the auth callback) and links through to the repository listing.
 
+import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { GH_PROVIDER_TOKEN_COOKIE } from "@/lib/github/oauth";
 
-export default function IntegrationsPage() {
-  const integrations = [
-    {
-      name: "GitHub",
-      description: "Sync repositories into the knowledge base.",
-    },
-    { name: "Slack", description: "Sync channels and threads for context." },
-  ];
+export const dynamic = "force-dynamic";
+
+export default async function IntegrationsPage() {
+  const githubConnected = Boolean(
+    (await cookies()).get(GH_PROVIDER_TOKEN_COOKIE)?.value,
+  );
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-semibold">Integrations</h1>
       <div className="grid gap-4 sm:grid-cols-2">
-        {integrations.map((integration) => (
-          <Card key={integration.name}>
-            <CardHeader>
-              <CardTitle>{integration.name}</CardTitle>
-              <CardDescription>{integration.description}</CardDescription>
-              <Badge className="mt-2 w-fit" variant="outline">
-                Not connected
-              </Badge>
-            </CardHeader>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader>
+            <CardTitle>GitHub</CardTitle>
+            <CardDescription>
+              Sync repositories into the knowledge base.
+            </CardDescription>
+            <Badge
+              className="mt-2 w-fit"
+              variant={githubConnected ? "default" : "outline"}
+            >
+              {githubConnected ? "Connected" : "Not connected"}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            {githubConnected ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/integrations/github">View repositories</Link>
+              </Button>
+            ) : (
+              <Button size="sm" asChild>
+                <Link href="/login?redirectTo=/integrations/github">
+                  Connect GitHub
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Slack</CardTitle>
+            <CardDescription>
+              Sync channels and threads for context.
+            </CardDescription>
+            <Badge className="mt-2 w-fit" variant="outline">
+              Not connected
+            </Badge>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   );

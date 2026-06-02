@@ -6,8 +6,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { GH_PROVIDER_TOKEN_COOKIE } from "@/lib/github/oauth";
 
 type AuthState = { error: string } | undefined;
 
@@ -81,6 +82,10 @@ export async function signInWithGitHub(formData: FormData): Promise<void> {
     provider: "github",
     options: {
       redirectTo: `${origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+      // Scopes needed to read the user's profile and list their repositories
+      // (incl. private + org repos). The resulting provider_token is captured
+      // at the callback so we can list repos on the user's behalf.
+      scopes: "read:user repo read:org",
     },
   });
 
@@ -94,6 +99,7 @@ export async function signInWithGitHub(formData: FormData): Promise<void> {
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  (await cookies()).delete(GH_PROVIDER_TOKEN_COOKIE);
   revalidatePath("/", "layout");
   redirect("/login");
 }
