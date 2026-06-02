@@ -11,6 +11,7 @@ import { getProjectAccess } from "@/lib/members/access";
 import { listMembers } from "@/lib/members/queries";
 import { buildMemberCandidates } from "@/lib/members/candidates";
 import { getProjectInstallationId } from "@/lib/github/installation";
+import { githubAppInstallUrl } from "@/lib/github/oauth";
 import { getProjectConnection } from "@/lib/projects/connections";
 import { ProjectRole, Provider } from "@/generated/prisma/enums";
 import type { MemberCandidate } from "@/types/member";
@@ -36,6 +37,7 @@ export default async function MembersPage({
   // when either is missing (e.g. the repo isn't connected yet).
   let candidates: MemberCandidate[] = [];
   let disabledReason: string | undefined;
+  let installAppUrl: string | undefined;
   if (isAdmin) {
     const githubConnection = await getProjectConnection(
       projectId,
@@ -45,16 +47,21 @@ export default async function MembersPage({
       disabledReason =
         "Connect a GitHub repository to discover members from its collaborators.";
     } else {
+      // A repo is connected: always offer the manage/install link so the dialog
+      // can surface it (e.g. when the collaborator list comes back empty).
+      installAppUrl = githubAppInstallUrl(projectId);
       const installationId = await getProjectInstallationId(projectId);
       if (!installationId) {
         disabledReason =
-          "Install the Onboardly GitHub App on this repository to discover collaborators.";
+          "The Onboardly GitHub App isn't installed on this repository yet. An owner of the repository's account or organization needs to install it before collaborators can be discovered.";
       } else {
         try {
           candidates = await buildMemberCandidates(projectId, installationId);
         } catch {
+          // Reachable when the App lost access to this repo (e.g. it was
+          // removed from the installation). Offer a re-install path.
           disabledReason =
-            "Couldn't reach GitHub to list collaborators. Try again shortly.";
+            "Couldn't list collaborators for this repository. The GitHub App may no longer have access — reinstall it, then try again.";
         }
       }
     }
@@ -82,6 +89,7 @@ export default async function MembersPage({
               projectId={projectId}
               candidates={candidates}
               disabledReason={disabledReason}
+              installAppUrl={installAppUrl}
             />
           ) : null
         }

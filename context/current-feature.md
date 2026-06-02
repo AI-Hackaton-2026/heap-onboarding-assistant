@@ -1,38 +1,93 @@
-# Current Feature: Project Members & Admin
+# Current Feature: Greenfield DB Rewrite
 
 ## Status
 
-In Progress — branch `feature/project-members-and-admin` (off `development`). Deadline: tomorrow 17:00. Full spec: `context/features/project-members-and-admin.md` (+ companion `project-members-migration-plan.md`). Tasks: `T-MEM-1..4` (T-MEM-5 invite-flow deferred, T-MEM-6 lands with Course UI).
+Complete - branch `feature/db-rewrite` (off freshly synced `development`).
+Schema normalized, members feature re-pointed, create-project picker, and the
+GitHub member-discovery flow verified end-to-end in the browser. Full handoff:
+`context/features/db-rewrite-handoff.md`; review record:
+`context/features/db-rewrite-review.md`.
 
 ## Goals
 
-**Project Members & Admin** — let a project **admin** (creator/lead) add other Onboardly developers to a project, discovered from the project's connected **GitHub repo collaborators**, and give those developers a real **member** experience (see the project, open course + chat, view the roster). Admin keeps full project CRUD; members are read-only on project settings.
+Rewrite the database greenfield and reorganize the data-access layer around the
+normalized model:
 
-Buildable scope for this slice (confirmed with user):
-
-1. **Members CRUD + roster** — `ProjectMember` model, project roles (`ADMIN` | `MEMBER`), add/remove, admin roster UI, server-side role enforcement.
-2. **GitHub discovery import** — list repo **collaborators** (`GET /repos/{owner}/{repo}/collaborators`, installation token) and intersect with Onboardly users to build the "Add members" candidate list.
-3. **Member's cross-org project view** — a developer added to a project in *another* org can see + open that one project.
-4. **Onboarding % (stub-safe)** — `LessonProgress` table + derived % now; renders "Not started" until the course system (Phases 8–10) exists. No stored percent.
+1. Drop `organizations`; projects are owned directly by `users`.
+2. Make `project_members` the only project-access path. Creator is an ACTIVE
+   `ADMIN` member and `projects.ownerId` remains the canonical creator marker.
+3. Replace `UserProfile` with generic `user_identities` for GitHub and Slack.
+4. Replace project repo/workspace columns plus `integrations` with
+   `project_connections`.
+5. Normalize knowledge into `documents -> document_chunks -> embeddings`.
+6. Normalize chat citations into `message_citations`.
+7. Add `sync_jobs` for future admin-dashboard status history.
+8. Preserve the existing members feature behavior while re-pointing its data
+   access to the new schema.
 
 ## Notes
 
-Decisions locked with the user (these **supersede** the older email/contributors/invite design that the spec file previously held):
+Locked decisions from `context/features/db-rewrite-handoff.md` govern this slice.
+No data migration: reset the remote hackathon database with
+`prisma db push --force-reset`. Keep `ProjectRole = ADMIN | MEMBER`, retain the
+create-project connection selection, enforce access in app logic because Prisma
+bypasses RLS, lowercase GitHub login join keys, soft-delete members, and derive
+progress percentages rather than storing them.
 
-- **Discovery = repo collaborators API**, not contributors — so a brand-new hire with 0 commits still appears (they have repo *access*).
-- **Identity link = GitHub login (lowercased), email fallback.** GitHub returns `login` only for collaborators, so login is the join key.
-- **Members must already have an Onboardly account** (with GitHub connected). No invite/pre-signup limbo this slice. Collaborators without an account show **greyed-out "No Onboardly account."**
-- **New `UserProfile` table** maps Supabase `userId` → `githubLogin` (+ email/avatar/name), populated on GitHub login from `user_metadata`. Discovery = repo collaborators ∩ `UserProfile`.
-- **Biggest behavioral change — cross-org visibility:** `listProjects` becomes the **union of owned ∪ member-of**; `getProject` is superseded by `getProjectAccess(projectId)` → `{ project, role } | null`. Every existing `getProject` call site (overview/edit/course/chat/admin/update/delete) must be routed through the right guard. Membership grants access to **that one project only**, never the whole foreign org.
-- **Permissions (enforced server-side, Prisma bypasses RLS):** Admin = edit/delete/connect/add-remove/see-all-progress. Member = see overview + course + chat + read-only roster; cannot edit/delete/connect/add. Don't lock out the last admin.
-
-Migration/backfill: existing projects get their org owner back-filled as an `ADMIN` member; existing users get a `UserProfile` on their next GitHub login (acceptable for demo).
-
-**Member Remove = soft-delete** (decided): set `status: REMOVED`, keep the row + `LessonProgress`, filter `status != REMOVED` everywhere (roster, access check, candidate "already added"). Re-adding reactivates the existing row (`@@unique([projectId, userId])` → upsert, not insert) so prior progress is restored.
-
-Workflow next steps: branch off `development` (`/feature start`), implement `T-MEM-1` → `T-MEM-4`, lint+build, browser-test the acceptance checklist in the spec, then commit in small logical chunks.
+Create-project UX now lists GitHub OAuth repositories that are not already
+linked to a project. Selecting one populates the editable project name and
+description from repo metadata / README text. Slack organization discovery
+remains an explicit TODO until Slack OAuth lands.
 
 ## History
+
+### DB Rewrite — Review, GitHub Discovery Fixes & Data Reset
+
+Reviewed the externally-committed normalization baseline (`de2535c`) and the
+create-project picker follow-up, then fixed the GitHub member-discovery flow and
+reset the database to a clean empty state. The normalization itself was faithful
+to the locked decisions; the "members don't show" bug was a config + stale-data
+problem, not a schema bug.
+
+- **Data reset (rows only, schema kept):** added `scripts/reset-data.ts`
+  (`npm run db:reset-data`) that `TRUNCATE`s all 18 tables — clears the fixture
+  junk (the placeholder `0000…000` owner / demo project the seed inserted when
+  `SEED_USER_ID` was unset) without dropping tables. Decided to **keep all 18
+  tables**: every empty one is referenced by already-written ingestion/course/
+  chat/RAG code or a locked-plan feature (dropping would break the build);
+  `app_roles` is the only code-unused table and is kept as the intended admin
+  model. Hardened `prisma/seed.ts` to refuse running without a real
+  `SEED_USER_ID` so it can't repopulate fixture junk. Supabase `auth.users` is
+  untouched (different schema).
+- **Missing GitHub App callback route (404):** built
+  `src/app/api/github/callback/route.ts` — receives `installation_id` /
+  `setup_action`, verifies the caller is a project ADMIN, and persists the
+  installation id onto the project's GitHub connection. The install URL now
+  round-trips `?state=<projectId>` (`githubAppInstallUrl(projectId)`). Distinct
+  from Supabase OAuth login (`…supabase.co/auth/v1/callback`).
+- **Self-healing installation resolver:** `getProjectInstallationId` now resolves
+  the installation **live from the repo owner** (authoritative) instead of
+  trusting a stored id; ignores stale/wrong ids (e.g. a personal install id
+  saved for an org repo, which minted a token that 404'd on the collaborators
+  API), self-heals the stored value, and returns null when the App isn't
+  installed → UI shows the proper "install the app" state.
+- **Root cause of empty modal (config, not code):** the App lacked
+  **Administration: Read**, which the collaborators API requires (404 without
+  it) — user added it; and the App was only installed on the personal `htuco`
+  account, not on the orgs owning the projects' repos. Documented both in
+  `.env.example`.
+- **In-app guidance:** the Add Members dialog now shows a persistent "How GitHub
+  discovery works" note (App must be installed on the repo's owner; only an
+  owner can install; any project admin can then add; only collaborators with an
+  Onboardly account are addable) plus clearer blocked-state copy + install link.
+- **Theme-init React warning fixed:** moved the anti-flash script out of the
+  layout's React tree into `ThemeProvider` via `useServerInsertedHTML`, removing
+  the React 19 "script tag while rendering" console error.
+- **Verified end-to-end in the browser** (logged-in admin): `htuco/htuco`
+  members page lists the real collaborators (`htuco` self, `altmahrum-web`) with
+  correct addable/already-member/self states; the `HarisS23/Flair` project (App
+  not installed) shows the install prompt + guidance note. `next lint` + `tsc` +
+  `next build` all pass.
 
 ### Core Project Management (Phase 2)
 

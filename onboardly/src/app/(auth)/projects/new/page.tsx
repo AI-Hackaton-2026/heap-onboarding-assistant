@@ -11,8 +11,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/ProjectForm";
+import { githubAppInstallUrl } from "@/lib/github/oauth";
+import { listAvailableGitHubRepos } from "@/lib/projects/github";
 
-export default function NewProjectPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewProjectPage() {
+  const githubRepos = await listAvailableGitHubRepos();
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -34,7 +40,10 @@ export default function NewProjectPage() {
           <CardDescription>You can change any of this later.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProjectForm />
+          <ProjectForm
+            githubRepos={githubRepos}
+            githubAppInstallUrl={githubAppInstallUrl()}
+          />
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import {
   Dialog,
@@ -27,15 +28,48 @@ function initials(name: string | null, login: string): string {
   return base.slice(0, 2).toUpperCase();
 }
 
+// Explains how GitHub member discovery works so admins understand the
+// requirements when the list is empty or blocked. The key constraint: the App
+// must be installed on the repo's *owner* (account/org), which only an owner of
+// that account/org can do — being a repo collaborator is not enough.
+function GitHubDiscoveryNote() {
+  return (
+    <div className="bg-muted/50 text-muted-foreground space-y-1 rounded-md border p-3 text-xs">
+      <p className="text-foreground font-medium">How GitHub discovery works</p>
+      <ul className="list-disc space-y-1 pl-4">
+        <li>
+          The Onboardly GitHub App must be installed on the repository&apos;s
+          account or organization.
+        </li>
+        <li>
+          Only an <span className="font-medium">owner</span>{" "}
+          of that account or organization can install it — being a repo
+          collaborator isn&apos;t enough.
+        </li>
+        <li>
+          Once it&apos;s installed, any project admin can add members — they
+          don&apos;t need to own the repo.
+        </li>
+        <li>
+          Only collaborators who already have an Onboardly account can be added.
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 export function AddMembersDialog({
   projectId,
   candidates,
   disabledReason,
+  installAppUrl,
 }: {
   projectId: string;
   candidates: MemberCandidate[];
   /** When set, discovery isn't available (e.g. no repo/installation) — explain why. */
   disabledReason?: string;
+  /** Offered when discovery is blocked because the GitHub App is not installed. */
+  installAppUrl?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -90,11 +124,33 @@ export function AddMembersDialog({
         </DialogHeader>
 
         {disabledReason ? (
-          <p className="text-muted-foreground py-4 text-sm">{disabledReason}</p>
+          <div className="space-y-3 py-4">
+            <p className="text-muted-foreground text-sm">{disabledReason}</p>
+            {installAppUrl ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={installAppUrl} target="_blank" rel="noreferrer">
+                  Install GitHub App
+                </Link>
+              </Button>
+            ) : null}
+            <GitHubDiscoveryNote />
+          </div>
         ) : candidates.length === 0 ? (
-          <p className="text-muted-foreground py-4 text-sm">
-            No collaborators found for this repository.
-          </p>
+          <div className="space-y-3 py-4">
+            <p className="text-muted-foreground text-sm">
+              No collaborators found for this repository. If you expect to see
+              people here, confirm the GitHub App is installed on this repo and
+              that collaborators have access.
+            </p>
+            {installAppUrl ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={installAppUrl} target="_blank" rel="noreferrer">
+                  Manage GitHub App
+                </Link>
+              </Button>
+            ) : null}
+            <GitHubDiscoveryNote />
+          </div>
         ) : (
           <div className="space-y-4">
             {addable.length > 0 ? (
@@ -112,7 +168,10 @@ export function AddMembersDialog({
                         />
                         <Avatar className="size-7">
                           {c.avatarUrl ? (
-                            <AvatarImage src={c.avatarUrl} alt={c.githubLogin} />
+                            <AvatarImage
+                              src={c.avatarUrl}
+                              alt={c.githubLogin}
+                            />
                           ) : null}
                           <AvatarFallback>
                             {initials(name, c.githubLogin)}

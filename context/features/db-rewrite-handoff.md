@@ -42,7 +42,7 @@ preserve.**
 | Identity population | **Write on login from `user_metadata`** (same pattern as today's profile upsert). Do NOT sync from Supabase `auth.identities`. |
 | Provider linking | A user can have **both** GitHub and Slack identities; both can be login methods OR connected-later. |
 | Connections | **`projects.githubRepo/slackWorkspace` + `integrations` → one `project_connections` table** (row per provider). |
-| Create UX | **`createProject` keeps repo/Slack inputs** → writes `project_connections` rows immediately. Don't drop the inputs. |
+| Create UX | **`createProject` lists unlinked GitHub repos when GitHub is connected** → selecting one populates title + README description and writes a `project_connections` row immediately. Slack organization selection is TODO. |
 | Chat | **`chats → chat_messages → message_citations`** (citations = rows, not JSON). |
 | Knowledge | **`documents → document_chunks → embeddings`** (embeddings 1:1 with chunk). |
 | Sync status | **`sync_jobs`** table (run history) for the Phase-13 admin dashboard. |
@@ -50,7 +50,7 @@ preserve.**
 
 ---
 
-## Target schema (18 tables)
+## Target schema (19 tables)
 
 Replace `prisma/schema.prisma` wholesale. **Keep** from the current file: the
 `generator client` block (output `../src/generated/prisma`, `prisma-client`,
@@ -504,10 +504,10 @@ model MessageCitation {
 - **`src/app/(auth)/projects/[projectId]/members/page.tsx`** — the
   `access.project.githubRepo` guard → "does a GitHub `project_connections` row
   exist?" Pass its `externalRef` into the candidate builder path.
-- **`src/components/projects/ProjectForm.tsx`** — repo/Slack inputs stay; their
-  values now flow into connection rows via the actions. No UI change needed
-  unless the type of the prefilled values changes (read from connections in the
-  edit page's data fetch).
+- **`src/components/projects/ProjectForm.tsx`** — create mode lists unlinked
+  GitHub repos when GitHub is connected; selecting one populates editable title
+  + README description. Slack organization selection stays TODO. Edit mode
+  reads prefilled values from connections.
 - `dashboard/page.tsx`, `projects/page.tsx`, `RoleBadge.tsx`,
   `ProjectStatusBadge.tsx` — **no change** (roles unchanged; they already map
   `{ project, role }`).

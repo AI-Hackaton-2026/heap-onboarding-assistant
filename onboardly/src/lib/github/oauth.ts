@@ -16,6 +16,22 @@ const GITHUB_API = "https://api.github.com";
 // callback and server-rendered repo listing. Short-lived, like the token.
 export const GH_PROVIDER_TOKEN_COOKIE = "gh_provider_token";
 
+/**
+ * Public GitHub App installation page used by repo-connection UI. Pass a
+ * projectId to round-trip it as `state`; GitHub returns it to our Setup URL
+ * (/api/github/callback) so the resulting installation can be attached to that
+ * project's GitHub connection.
+ */
+export function githubAppInstallUrl(projectId?: string): string {
+  const slug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
+  const base = slug
+    ? `https://github.com/apps/${slug}/installations/new`
+    : "https://github.com/settings/installations";
+  return projectId
+    ? `${base}?state=${encodeURIComponent(projectId)}`
+    : base;
+}
+
 export interface GitHubRepo {
   id: number;
   name: string;
@@ -49,6 +65,15 @@ function userAuthHeaders(token: string): HeadersInit {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
+}
+
+function repoApiPath(fullName: string): string | null {
+  const [owner, repo, ...rest] = fullName.split("/");
+  if (!owner || !repo || rest.length > 0) {
+    return null;
+  }
+
+  return `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
 }
 
 /**
@@ -141,4 +166,37 @@ export async function listUserRepos(token: string): Promise<GitHubRepo[]> {
     updatedAt: repo.updated_at,
     ingestionReady: installedNames.has(repo.full_name),
   }));
+}
+
+/**
+ * Fetch a repository README as raw text. Missing READMEs are expected and
+ * return null so project creation can fall back to the repo description.
+ */
+export async function fetchRepoReadme(
+  token: string,
+  fullName: string,
+): Promise<string | null> {
+  const path = repoApiPath(fullName);
+  if (!path) {
+    return null;
+  }
+
+  const res = await fetch(`${GITHUB_API}/repos/${path}/readme`, {
+    headers: {
+      ...userAuthHeaders(token),
+      Accept: "application/vnd.github.raw+json",
+    },
+    cache: "no-store",
+  });
+
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to fetch README (${res.status}): ${body}`);
+  }
+
+  const readme = (await res.text()).trim();
+  return readme || null;
 }

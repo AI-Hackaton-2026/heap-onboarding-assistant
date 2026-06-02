@@ -7,7 +7,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
+import { fetchRepoReadme } from "@/lib/github/oauth";
 import { getCurrentUserId, requireProjectAdmin } from "@/lib/members/access";
+import { findAvailableGitHubRepo } from "@/lib/projects/github";
 import {
   ConnectionStatus,
   Provider,
@@ -18,6 +20,9 @@ import {
 } from "@/generated/prisma/enums";
 
 export type ProjectFormState = { error: string } | undefined;
+export type GitHubRepoDefaultsState =
+  | { name: string; description: string; notice?: string }
+  | { error: string };
 
 const PROJECT_STATUSES = Object.values(ProjectStatus);
 
@@ -34,6 +39,39 @@ function field(formData: FormData, name: string): string {
 function optionalField(formData: FormData, name: string): string | null {
   const value = field(formData, name);
   return value.length > 0 ? value : null;
+}
+
+/** Populate create-form defaults from one still-available GitHub repository. */
+export async function loadGitHubRepoDefaults(
+  fullName: string,
+): Promise<GitHubRepoDefaultsState> {
+  try {
+    const selected = await findAvailableGitHubRepo(fullName);
+    if (!selected) {
+      return { error: "That GitHub repository is no longer available." };
+    }
+
+    try {
+      const readme = await fetchRepoReadme(
+        selected.token,
+        selected.repo.fullName,
+      );
+      return {
+        name: selected.repo.name,
+        description: readme ?? selected.repo.description ?? "",
+      };
+    } catch {
+      return {
+        name: selected.repo.name,
+        description: selected.repo.description ?? "",
+        notice: "README unavailable. Using the GitHub repository description.",
+      };
+    }
+  } catch {
+    return {
+      error: "Could not load that GitHub repository. Please reconnect.",
+    };
+  }
 }
 
 export async function createProject(
@@ -55,8 +93,25 @@ export async function createProject(
     statusInput && isProjectStatus(statusInput)
       ? statusInput
       : ProjectStatus.DRAFT;
-  const githubRepo = optionalField(formData, "githubRepo");
+  let githubRepo = optionalField(formData, "githubRepo");
   const slackWorkspace = optionalField(formData, "slackWorkspace");
+
+  if (githubRepo) {
+    try {
+      const selected = await findAvailableGitHubRepo(githubRepo);
+      if (!selected) {
+        return {
+          error:
+            "That GitHub repository is unavailable or already linked to a project.",
+        };
+      }
+      githubRepo = selected.repo.fullName;
+    } catch {
+      return {
+        error: "Could not verify that GitHub repository. Please reconnect.",
+      };
+    }
+  }
 
   // Create the project, seat its creator, and record initial connections in one
   // transaction so every project starts with a real access path.
@@ -95,32 +150,34 @@ export async function createProject(
       },
     });
 
-    await tx.projectConnection.createMany({
-      data: [
-        ...(githubRepo
-          ? [
-              {
-                projectId: created.id,
-                provider: Provider.GITHUB,
-                externalRef: githubRepo,
-                status: ConnectionStatus.CONNECTED,
-                connectedAt: new Date(),
-              },
-            ]
-          : []),
-        ...(slackWorkspace
-          ? [
-              {
-                projectId: created.id,
-                provider: Provider.SLACK,
-                externalRef: slackWorkspace,
-                status: ConnectionStatus.CONNECTED,
-                connectedAt: new Date(),
-              },
-            ]
-          : []),
-      ],
-    });
+    const connections = [
+      ...(githubRepo
+        ? [
+            {
+              projectId: created.id,
+              provider: Provider.GITHUB,
+              externalRef: githubRepo,
+              status: ConnectionStatus.CONNECTED,
+              connectedAt: new Date(),
+            },
+          ]
+        : []),
+      ...(slackWorkspace
+        ? [
+            {
+              projectId: created.id,
+              provider: Provider.SLACK,
+              externalRef: slackWorkspace,
+              status: ConnectionStatus.CONNECTED,
+              connectedAt: new Date(),
+            },
+          ]
+        : []),
+    ];
+
+    if (connections.length > 0) {
+      await tx.projectConnection.createMany({ data: connections });
+    }
 
     return created;
   });

@@ -23,23 +23,53 @@ async function getGitHubConnection(projectId: string): Promise<{
 }
 
 /**
- * The GitHub App installation id for a project's repo. Tries the stored
- * connection value first, then resolves it live from the repo owner via the App
- * JWT. Returns null when the repo isn't set or the App isn't installed on it
- * (discovery then degrades to the "install the app" empty state).
+ * The GitHub App installation id for a project's repo. We resolve it *live* from
+ * the repo owner (GET /repos/{owner}/{repo}/installation) because that returns
+ * the installation that actually has the repo — the authoritative source. A
+ * stored id can be stale or for the wrong account (e.g. a personal installation
+ * id saved for an org repo), which mints a token that 404s on the collaborators
+ * API; trusting it blindly was the bug. The stored id is used only as a fallback
+ * when the live lookup itself errors (network/GitHub hiccup). When the live
+ * value succeeds and differs from what's stored, we self-heal the row.
+ *
+ * Returns null when the repo isn't set or the App isn't installed on the repo's
+ * owner (discovery then degrades to the "install the app" empty state).
  */
 export async function getProjectInstallationId(
   projectId: string,
 ): Promise<string | null> {
   const connection = await getGitHubConnection(projectId);
-  if (connection?.installationId) return connection.installationId;
-
   const repoRef = parseRepoRef(connection?.externalRef ?? null);
-  if (!repoRef) return null;
+  if (!repoRef) return connection?.installationId ?? null;
 
   try {
-    return await getRepoInstallationId(repoRef.owner, repoRef.repo);
+    const live = await getRepoInstallationId(repoRef.owner, repoRef.repo);
+    // App not installed on this repo's owner — ignore any stale stored id so
+    // the UI shows "install the app" rather than 404ing on a wrong token.
+    if (!live) return null;
+    if (live !== connection?.installationId) {
+      await saveProjectInstallationId(projectId, live); // self-heal stale/wrong id
+    }
+    return live;
   } catch {
-    return null; // GitHub error — degrade to "couldn't reach GitHub".
+    // Live lookup failed (network/GitHub). Fall back to the stored id if any.
+    return connection?.installationId ?? null;
   }
+}
+
+/**
+ * Persist a GitHub App installation id onto a project's GITHUB connection. Used
+ * by the App-install callback so later collaborator discovery uses the stored id
+ * directly instead of re-resolving it live. No-ops cleanly if the project has no
+ * GitHub connection row yet (nothing to attach the installation to).
+ */
+export async function saveProjectInstallationId(
+  projectId: string,
+  installationId: string,
+): Promise<boolean> {
+  const result = await prisma.projectConnection.updateMany({
+    where: { projectId, provider: Provider.GITHUB },
+    data: { installationId },
+  });
+  return result.count > 0;
 }

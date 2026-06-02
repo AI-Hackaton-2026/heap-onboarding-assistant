@@ -27,8 +27,15 @@ async function main() {
   });
   const prisma = new PrismaClient({ adapter });
 
-  const userId =
-    process.env.SEED_USER_ID ?? "00000000-0000-0000-0000-000000000000";
+  // Require a real owner id. Without this the seed would insert a placeholder
+  // 0000…000 user and a demo project owned by nobody — exactly the fixture junk
+  // we cleared. Set SEED_USER_ID to your Supabase auth user id to seed a demo.
+  const userId = process.env.SEED_USER_ID;
+  if (!userId) {
+    throw new Error(
+      "SEED_USER_ID is required. Run: SEED_USER_ID=<your-supabase-user-uuid> npm run db:seed",
+    );
+  }
   const githubLogin = (
     process.env.SEED_GITHUB_LOGIN ?? "onboardly-demo"
   ).toLowerCase();

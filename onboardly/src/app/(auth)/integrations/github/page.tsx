@@ -17,20 +17,12 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   GH_PROVIDER_TOKEN_COOKIE,
+  githubAppInstallUrl,
   listUserRepos,
   type GitHubRepo,
 } from "@/lib/github/oauth";
 
 export const dynamic = "force-dynamic";
-
-// Where to send the user to install the Onboardly GitHub App on a repo. Uses
-// the App's public slug when configured, else the generic installations page.
-function appInstallUrl(): string {
-  const slug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
-  return slug
-    ? `https://github.com/apps/${slug}/installations/new`
-    : "https://github.com/settings/installations";
-}
 
 function RepoRow({ repo }: { repo: GitHubRepo }) {
   return (
@@ -68,7 +60,7 @@ function RepoRow({ repo }: { repo: GitHubRepo }) {
           </Button>
         ) : (
           <Button variant="outline" size="sm" asChild>
-            <Link href={appInstallUrl()} target="_blank" rel="noreferrer">
+            <Link href={githubAppInstallUrl()} target="_blank" rel="noreferrer">
               Install app
             </Link>
           </Button>
@@ -139,7 +131,8 @@ export default async function GitHubReposPage() {
           <CardHeader>
             <CardTitle>Your repositories</CardTitle>
             <CardDescription>
-              {repos.length} {repos.length === 1 ? "repository" : "repositories"}
+              {repos.length}{" "}
+              {repos.length === 1 ? "repository" : "repositories"}
               {readyCount > 0 ? ` · ${readyCount} ingestion-ready` : ""}
             </CardDescription>
           </CardHeader>
