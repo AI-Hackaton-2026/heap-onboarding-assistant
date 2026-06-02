@@ -13,10 +13,10 @@ export function PublicHeader() {
       <nav className="flex items-center gap-2">
         <ThemeToggle />
         <Button asChild variant="ghost" size="sm">
-          <Link href="/dashboard">Sign in</Link>
+          <Link href="/login">Sign in</Link>
         </Button>
         <Button asChild size="sm">
-          <Link href="/dashboard">Get started</Link>
+          <Link href="/login">Get started</Link>
         </Button>
       </nav>
     </header>
