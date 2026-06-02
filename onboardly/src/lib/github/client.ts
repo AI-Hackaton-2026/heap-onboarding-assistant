@@ -1,7 +1,103 @@
-// Placeholder GitHub client helper.
-// Future responsibility: authenticate as the GitHub App installation and
-// expose typed calls for repo metadata, contents, PRs, and issues.
+// GitHub App authentication helpers.
+//
+// A GitHub App authenticates in two steps:
+//   1. Sign a short-lived JWT with the App's private key (identifies the App).
+//   2. Exchange that JWT for an *installation access token* scoped to the repos
+//      a user granted when they installed the App.
+//
+// The installation token is what we use to read repo contents / PRs / issues
+// during sync (Phase 3). This module only mints credentials — the actual sync
+// pipeline lives in src/lib/github/sync.ts.
 
-export function createGitHubClient(): never {
-  throw new Error("GitHub client not implemented yet");
+import { createSign } from "node:crypto";
+
+const GITHUB_API = "https://api.github.com";
+
+function getAppCredentials(): { appId: string; privateKey: string } {
+  const appId = process.env.GITHUB_APP_ID;
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
+  if (!appId || !privateKey) {
+    throw new Error(
+      "GitHub App not configured: set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY.",
+    );
+  }
+  // Allow the key to be stored with literal \n escapes in .env.local.
+  return { appId, privateKey: privateKey.replace(/\\n/g, "\n") };
+}
+
+function base64url(input: Buffer | string): string {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+/**
+ * Build a signed JWT for the GitHub App (valid ~10 minutes). Used as a Bearer
+ * token to call App-level endpoints, e.g. creating installation tokens.
+ */
+export function createAppJwt(): string {
+  const { appId, privateKey } = getAppCredentials();
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
+    JSON.stringify({
+      iat: now - 60, // clock-skew allowance
+      exp: now + 9 * 60, // max 10 min; stay under it
+      iss: appId,
+    }),
+  );
+
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${header}.${payload}`);
+  const signature = base64url(signer.sign(privateKey));
+
+  return `${header}.${payload}.${signature}`;
+}
+
+/**
+ * Exchange the App JWT for an installation access token scoped to a single
+ * installation (the set of repos a user granted). Tokens last ~1 hour.
+ */
+export async function getInstallationToken(
+  installationId: string | number,
+): Promise<string> {
+  const jwt = createAppJwt();
+  const res = await fetch(
+    `${GITHUB_API}/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to create installation token (${res.status}): ${body}`,
+    );
+  }
+
+  const data = (await res.json()) as { token: string };
+  return data.token;
+}
+
+/**
+ * Build authorization headers for installation-scoped REST calls.
+ */
+export async function installationAuthHeaders(
+  installationId: string | number,
+): Promise<HeadersInit> {
+  const token = await getInstallationToken(installationId);
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
 }

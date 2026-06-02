@@ -40,10 +40,10 @@ export function PublicHeader() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
-            <Link href="/dashboard">Log in</Link>
+            <Link href="/login">Log in</Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/dashboard">Start Onboarding</Link>
+            <Link href="/login">Start Onboarding</Link>
           </Button>
         </div>
       </div>
