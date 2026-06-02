@@ -1,4 +1,4 @@
-# Current Feature
+# Current Feature: Gemini Course Generator + Academy UI
 
 ## Status
 
