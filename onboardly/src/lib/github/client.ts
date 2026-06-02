@@ -89,6 +89,41 @@ export async function getInstallationToken(
 }
 
 /**
+ * Resolve the installation id for a specific repo via the App JWT
+ * (GET /repos/{owner}/{repo}/installation). Returns null when the App isn't
+ * installed on that repo (404) so callers can degrade gracefully. This lets
+ * member discovery work for any repo the App is installed on, without a stored
+ * integration row (the Phase-3 connect flow will persist it later).
+ */
+export async function getRepoInstallationId(
+  owner: string,
+  repo: string,
+): Promise<string | null> {
+  const jwt = createAppJwt();
+  const res = await fetch(
+    `${GITHUB_API}/repos/${owner}/${repo}/installation`,
+    {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+
+  if (res.status === 404) return null; // App not installed on this repo.
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to resolve installation for ${owner}/${repo} (${res.status}): ${body}`,
+    );
+  }
+
+  const data = (await res.json()) as { id?: number | string };
+  return data.id != null ? String(data.id) : null;
+}
+
+/**
  * Build authorization headers for installation-scoped REST calls.
  */
 export async function installationAuthHeaders(

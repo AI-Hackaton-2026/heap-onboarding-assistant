@@ -1,5 +1,7 @@
-// Generated onboarding course placeholder — renders modules/lessons from mock data.
+// Generated onboarding course placeholder — renders modules/lessons from mock
+// data. Open to anyone with project access (admins + members); 404s otherwise.
 
+import { notFound } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -9,13 +11,19 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { mockCourse } from "@/data/mock/course";
+import { getProjectAccess } from "@/lib/members/access";
+
+export const dynamic = "force-dynamic";
 
 export default async function CoursePage({
   params,
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await params;
+  const { projectId } = await params;
+  if (!(await getProjectAccess(projectId))) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6">

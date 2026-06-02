@@ -1,5 +1,6 @@
-// Projects list — the current organization's projects from the database.
-// Tenant isolation is enforced in listProjects (Prisma bypasses RLS).
+// Projects list — every project the current user can see: those they own plus
+// projects they're an ACTIVE member of (cross-org). Each card is tagged with the
+// caller's role. Access is enforced in app logic (Prisma bypasses RLS).
 
 import Link from "next/link";
 import {
@@ -11,12 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
-import { listProjects } from "@/lib/projects/queries";
+import { RoleBadge } from "@/components/members/RoleBadge";
+import { listAccessibleProjects } from "@/lib/members/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  const projects = await listProjects();
+  const projects = await listAccessibleProjects();
 
   return (
     <div className="space-y-6">
@@ -39,7 +41,7 @@ export default async function ProjectsPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {projects.map(({ project, role }) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="h-full">
                 <CardHeader>
@@ -47,10 +49,10 @@ export default async function ProjectsPage() {
                   <CardDescription className="line-clamp-2">
                     {project.description ?? "No description yet."}
                   </CardDescription>
-                  <ProjectStatusBadge
-                    className="mt-2"
-                    status={project.status}
-                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <ProjectStatusBadge status={project.status} />
+                    <RoleBadge role={role} />
+                  </div>
                 </CardHeader>
               </Card>
             </Link>

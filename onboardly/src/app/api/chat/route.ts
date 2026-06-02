@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getGemini, GEMINI_CHAT_MODEL } from "@/lib/ai/gemini";
+import { getProjectAccess } from "@/lib/members/access";
 import { searchKnowledge } from "@/lib/rag/search";
 import type { Citation } from "@/types/chat";
 
@@ -59,9 +60,21 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "chatId must be a valid UUID" }, { status: 400 });
   }
 
-  // 3. Resolve or create the chat session
+  if (!(await getProjectAccess(projectId))) {
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  // 3. Resolve or create the current user's chat session
   let resolvedChatId = chatId;
-  if (!resolvedChatId) {
+  if (resolvedChatId) {
+    const chat = await prisma.chat.findFirst({
+      where: { id: resolvedChatId, projectId, userId: user.id },
+      select: { id: true },
+    });
+    if (!chat) {
+      return Response.json({ error: "Chat not found" }, { status: 404 });
+    }
+  } else {
     const chat = await prisma.chat.create({
       data: {
         projectId,

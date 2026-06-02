@@ -61,6 +61,7 @@ model Project {
   courses      Course[]
   chats        Chat[]
   integrations Integration[]
+  members      ProjectMember[]
 
   @@index([organizationId])
   @@map("projects")
@@ -179,9 +180,10 @@ model Lesson {
   orderIndex Int      @map("order_index")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  module         Module          @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module         Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   checklistItems ChecklistItem[]
   quizzes        Quiz[]
+  progress       LessonProgress[]
 
   @@index([moduleId])
   @@map("lessons")
@@ -295,4 +297,114 @@ enum IntegrationStatus {
   ERROR
 
   @@map("integration_status")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Membership & roles
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The Onboardly directory: maps a Supabase auth user to their GitHub identity
+/// so collaborator discovery can intersect "repo collaborators" with real users.
+/// Populated on GitHub login from Supabase user_metadata. No FK to auth.users
+/// (Prisma doesn't manage that schema) — matched in app logic by userId/login.
+model UserProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Supabase auth.users.id — one profile per user.
+  userId      String   @unique @map("user_id") @db.Uuid
+  email       String?
+  /// GitHub username (login), captured from OAuth user_metadata. The primary
+  /// identity key for collaborator matching. Stored lowercased for case-
+  /// insensitive matching (GitHub logins are case-insensitive).
+  githubLogin String?  @unique @map("github_login")
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([githubLogin])
+  @@map("user_profiles")
+}
+
+/// A person attached to a project, with a project-level role + status.
+/// Discovery adds them as ACTIVE GitHub members; Remove is a soft-delete
+/// (status = REMOVED) so the row + its LessonProgress survive and re-adding
+/// reactivates it. @@unique([projectId, userId]) makes add idempotent.
+model ProjectMember {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  /// Supabase auth.users.id. Set immediately for this slice (members must exist).
+  userId      String       @map("user_id") @db.Uuid
+  /// Snapshotted identity for display + dedupe. githubLogin lowercased.
+  email       String?
+  githubLogin String?      @map("github_login")
+  displayName String?      @map("display_name")
+  avatarUrl   String?      @map("avatar_url")
+  role        ProjectRole  @default(MEMBER)
+  source      MemberSource @default(GITHUB)
+  status      MemberStatus @default(ACTIVE)
+  /// Assigned onboarding course (Phase 8+). Soft pointer — no FK relation until
+  /// the course generator ships, to avoid coupling this slice to it.
+  courseId    String?      @map("course_id") @db.Uuid
+  joinedAt    DateTime?    @map("joined_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+enum ProjectRole {
+  ADMIN
+  MEMBER
+
+  @@map("project_role")
+}
+
+enum MemberSource {
+  MANUAL
+  GITHUB
+  SLACK
+
+  @@map("member_source")
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+
+  @@map("member_status")
+}
+
+/// Per-lesson progress for a member — the source of the derived onboarding %.
+/// No percent is ever stored; % = completed / total course lessons, computed on
+/// read. Writes land with the Course UI (Phase 9 / T-MEM-6); this slice only
+/// ships the table + read/derivation so the roster has something to render.
+model LessonProgress {
+  id          String         @id @default(uuid()) @db.Uuid
+  memberId    String         @map("member_id") @db.Uuid
+  lessonId    String         @map("lesson_id") @db.Uuid
+  status      ProgressStatus @default(NOT_STARTED)
+  completedAt DateTime?      @map("completed_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  member ProjectMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  lesson Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, lessonId])
+  @@index([memberId])
+  @@map("lesson_progress")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("progress_status")
 }

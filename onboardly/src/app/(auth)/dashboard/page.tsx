@@ -1,5 +1,5 @@
-// Main authenticated dashboard — shows the current organization's projects
-// from the database (tenant-scoped via listProjects).
+// Main authenticated dashboard — every project the user can see: owned plus
+// projects they're an ACTIVE member of (cross-org), each tagged with their role.
 
 import Link from "next/link";
 import {
@@ -11,12 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
-import { listProjects } from "@/lib/projects/queries";
+import { RoleBadge } from "@/components/members/RoleBadge";
+import { listAccessibleProjects } from "@/lib/members/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const projects = await listProjects();
+  const projects = await listAccessibleProjects();
 
   return (
     <div className="space-y-6">
@@ -44,7 +45,7 @@ export default async function DashboardPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {projects.map(({ project, role }) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="h-full">
                 <CardHeader>
@@ -52,10 +53,10 @@ export default async function DashboardPage() {
                   <CardDescription className="line-clamp-2">
                     {project.description ?? "No description yet."}
                   </CardDescription>
-                  <ProjectStatusBadge
-                    className="mt-2"
-                    status={project.status}
-                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <ProjectStatusBadge status={project.status} />
+                    <RoleBadge role={role} />
+                  </div>
                 </CardHeader>
               </Card>
             </Link>

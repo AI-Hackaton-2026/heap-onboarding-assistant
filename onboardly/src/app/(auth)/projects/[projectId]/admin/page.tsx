@@ -1,6 +1,8 @@
 // Admin / project management placeholder — knowledge base status + controls
-// (resync GitHub/Slack, regenerate course, rebuild knowledge base).
+// (resync GitHub/Slack, regenerate course, rebuild knowledge base). Admin-only:
+// members 404 here.
 
+import { notFound } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -9,13 +11,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { requireProjectAdmin } from "@/lib/members/access";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminPage({
   params,
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await params;
+  const { projectId } = await params;
+  const access = await requireProjectAdmin(projectId);
+  if (!access) {
+    notFound();
+  }
 
   const controls = [
     "Resync GitHub",

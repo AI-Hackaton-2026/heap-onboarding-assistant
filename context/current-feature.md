@@ -1,48 +1,36 @@
-# Current Feature: AI Chat (RAG Pipeline)
+# Current Feature: Project Members & Admin
 
 ## Status
 
-In Progress
+In Progress — branch `feature/project-members-and-admin` (off `development`). Deadline: tomorrow 17:00. Full spec: `context/features/project-members-and-admin.md` (+ companion `project-members-migration-plan.md`). Tasks: `T-MEM-1..4` (T-MEM-5 invite-flow deferred, T-MEM-6 lands with Course UI).
 
 ## Goals
 
-- `POST /api/chat` accepts `{ message, projectId, chatId? }`, creates a new chat session when `chatId` is absent, returns `{ answer, citations, chatId }`
-- User identity validated via Supabase server session; reject 401 if unauthenticated
-- Embed user question via Gemini `text-embedding-004` (768 dims)
-- pgvector similarity search scoped by `projectId` — returns top-5 chunks with `source_label` as citation label
-- Graceful empty-KB response when no embeddings exist for the project
-- Gemini 2.5 Flash receives: system prompt + retrieved chunks + last 10 DB messages + new question
-- Both turns (user + assistant) written to `chat_messages` in a single Prisma transaction
-- Citations stored as `Json` on assistant message row and echoed in API response
-- `chat/page.tsx` becomes a live client component: local `messages` state, text input, Send button, citation badges under assistant bubbles
-- Loading state: disabled input + "..." typing bubble while awaiting API
-- Graceful inline error in chat thread on non-200 response (no error boundary throw)
+**Project Members & Admin** — let a project **admin** (creator/lead) add other Onboardly developers to a project, discovered from the project's connected **GitHub repo collaborators**, and give those developers a real **member** experience (see the project, open course + chat, view the roster). Admin keeps full project CRUD; members are read-only on project settings.
+
+Buildable scope for this slice (confirmed with user):
+
+1. **Members CRUD + roster** — `ProjectMember` model, project roles (`ADMIN` | `MEMBER`), add/remove, admin roster UI, server-side role enforcement.
+2. **GitHub discovery import** — list repo **collaborators** (`GET /repos/{owner}/{repo}/collaborators`, installation token) and intersect with Onboardly users to build the "Add members" candidate list.
+3. **Member's cross-org project view** — a developer added to a project in *another* org can see + open that one project.
+4. **Onboarding % (stub-safe)** — `LessonProgress` table + derived % now; renders "Not started" until the course system (Phases 8–10) exists. No stored percent.
 
 ## Notes
 
-**Files to create:**
-- `onboardly/src/app/api/chat/route.ts` — full RAG handler (replaces placeholder)
-- `onboardly/src/lib/rag/embeddings.ts` — `embedQuery(text)` + `embedChunks(texts[])` via Gemini SDK
-- `onboardly/src/lib/rag/search.ts` — `searchKnowledge(query, projectId, topK)` via raw SQL pgvector
+Decisions locked with the user (these **supersede** the older email/contributors/invite design that the spec file previously held):
 
-**Files to modify:**
-- `onboardly/src/app/(auth)/projects/[projectId]/chat/page.tsx` — replace static mock with live client component
+- **Discovery = repo collaborators API**, not contributors — so a brand-new hire with 0 commits still appears (they have repo *access*).
+- **Identity link = GitHub login (lowercased), email fallback.** GitHub returns `login` only for collaborators, so login is the join key.
+- **Members must already have an Onboardly account** (with GitHub connected). No invite/pre-signup limbo this slice. Collaborators without an account show **greyed-out "No Onboardly account."**
+- **New `UserProfile` table** maps Supabase `userId` → `githubLogin` (+ email/avatar/name), populated on GitHub login from `user_metadata`. Discovery = repo collaborators ∩ `UserProfile`.
+- **Biggest behavioral change — cross-org visibility:** `listProjects` becomes the **union of owned ∪ member-of**; `getProject` is superseded by `getProjectAccess(projectId)` → `{ project, role } | null`. Every existing `getProject` call site (overview/edit/course/chat/admin/update/delete) must be routed through the right guard. Membership grants access to **that one project only**, never the whole foreign org.
+- **Permissions (enforced server-side, Prisma bypasses RLS):** Admin = edit/delete/connect/add-remove/see-all-progress. Member = see overview + course + chat + read-only roster; cannot edit/delete/connect/add. Don't lock out the last admin.
 
-**Key gotchas:**
-- `@google/genai` v2 embedding result shape: `result.embeddings[0].values`
-- pgvector raw SQL via `prisma.$queryRaw` with `<=>` operator; vector must be Postgres literal string `[0.1,0.2,...]`
-- No RLS — every query must be scoped by `projectId` manually
-- Fetch last 10 messages max to keep prompt under token limits
-- Gemini is stateless — manually build `contents` array from DB history
-- Write both chat message rows in one `prisma.$transaction([...])` call
-- `ChatRole` enum: DB uses `USER`/`ASSISTANT` (uppercase); TS types use `"user"`/`"assistant"` (lowercase) — map at API boundary
+Migration/backfill: existing projects get their org owner back-filled as an `ADMIN` member; existing users get a `UserProfile` on their next GitHub login (acceptable for demo).
 
-**References:**
-- `onboardly/src/lib/ai/gemini.ts` — `getGemini()` client + model constants
-- `onboardly/src/types/chat.ts` — `ChatMessage`, `Citation`, `Chat` types
-- `onboardly/prisma/schema.prisma` — `Chat`, `ChatMessage`, `Embedding` table shapes
-- `onboardly/src/lib/supabase/server.ts` — server-side Supabase client
-- `onboardly/src/lib/db/prisma.ts` — Prisma singleton
+**Member Remove = soft-delete** (decided): set `status: REMOVED`, keep the row + `LessonProgress`, filter `status != REMOVED` everywhere (roster, access check, candidate "already added"). Re-adding reactivates the existing row (`@@unique([projectId, userId])` → upsert, not insert) so prior progress is restored.
+
+Workflow next steps: branch off `development` (`/feature start`), implement `T-MEM-1` → `T-MEM-4`, lint+build, browser-test the acceptance checklist in the spec, then commit in small logical chunks.
 
 ## History
 

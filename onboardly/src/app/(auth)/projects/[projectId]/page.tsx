@@ -1,6 +1,7 @@
 // Project overview — the project's details (name, description, status, connected
-// repo/workspace) plus entry points to the course, chat, and admin surfaces.
-// Org-scoped: 404s when the project isn't the current organization's.
+// repo/workspace) plus entry points to the course, chat, members, and admin
+// surfaces. Access via getProjectAccess: org owners + ACTIVE members can view;
+// only admins see Edit/Delete and the Admin section. 404s when no access.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,7 +15,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
-import { getProject } from "@/lib/projects/queries";
+import { RoleBadge } from "@/components/members/RoleBadge";
+import { getProjectAccess } from "@/lib/members/access";
+import { ProjectRole } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +27,12 @@ export default async function ProjectOverviewPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = await getProject(projectId);
-  if (!project) {
+  const access = await getProjectAccess(projectId);
+  if (!access) {
     notFound();
   }
+  const { project, role } = access;
+  const isAdmin = role === ProjectRole.ADMIN;
 
   const sections = [
     {
@@ -41,10 +46,20 @@ export default async function ProjectOverviewPage({
       description: "RAG chat with cited sources.",
     },
     {
-      href: `/projects/${project.id}/admin`,
-      title: "Admin",
-      description: "Manage docs, integrations, and regeneration.",
+      href: `/projects/${project.id}/members`,
+      title: "Members",
+      description: "See who's on this project and their progress.",
     },
+    // Admin surface is admin-only.
+    ...(isAdmin
+      ? [
+          {
+            href: `/projects/${project.id}/admin`,
+            title: "Admin",
+            description: "Manage docs, integrations, and regeneration.",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -56,6 +71,7 @@ export default async function ProjectOverviewPage({
               {project.name}
             </h1>
             <ProjectStatusBadge status={project.status} />
+            <RoleBadge role={role} />
           </div>
           {project.description ? (
             <p className="text-muted-foreground text-sm">
@@ -63,15 +79,17 @@ export default async function ProjectOverviewPage({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/projects/${project.id}/edit`}>Edit</Link>
-          </Button>
-          <DeleteProjectButton
-            projectId={project.id}
-            projectName={project.name}
-          />
-        </div>
+        {isAdmin ? (
+          <div className="flex shrink-0 gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/projects/${project.id}/edit`}>Edit</Link>
+            </Button>
+            <DeleteProjectButton
+              projectId={project.id}
+              projectName={project.name}
+            />
+          </div>
+        ) : null}
       </div>
 
       <Card>
