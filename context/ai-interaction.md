@@ -52,6 +52,7 @@ We will create a new branch for every feature/fix. Name branch **feature/[featur
 - Don't refactor unrelated code unless asked
 - Don't add "nice to have" features
 - Preserve existing patterns in the codebase
+- **Every component and page must be fully responsive (mobile / tablet / desktop) by default** — build mobile-first with Tailwind breakpoints and verify at 390 / 768 / 1440. This is a hard requirement, not optional polish. See `context/coding-standards.md` → "Responsiveness".
 
 ## Code Review
 
