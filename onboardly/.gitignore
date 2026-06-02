@@ -29,3 +29,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# prisma — generated client is built from the schema, not committed
+/src/generated
