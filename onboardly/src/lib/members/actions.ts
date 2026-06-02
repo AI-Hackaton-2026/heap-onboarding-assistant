@@ -10,7 +10,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireProjectAdmin } from "@/lib/members/access";
-import { ProjectRole, MemberStatus, MemberSource } from "@/generated/prisma/enums";
+import {
+  ProjectRole,
+  MemberStatus,
+  MemberSource,
+  Provider,
+} from "@/generated/prisma/enums";
 
 export type MemberActionResult = { ok: true } | { ok: false; error: string };
 
@@ -30,7 +35,7 @@ async function countActiveAdmins(projectId: string): Promise<number> {
  * Discovery/candidate validation happens upstream; this trusts that each userId
  * is a real Onboardly user the admin chose. Uses upsert so a previously-REMOVED
  * member is reactivated (restoring their LessonProgress) rather than duplicated.
- * Identity fields (login/email/name/avatar) are snapshotted from UserProfile.
+ * Identity fields are snapshotted from the GitHub identity and user directory.
  */
 export async function addMembers(
   projectId: string,
@@ -44,40 +49,41 @@ export async function addMembers(
     return { ok: false, error: "No members selected." };
   }
 
-  const profiles = await prisma.userProfile.findMany({
-    where: { userId: { in: uniqueIds } },
+  const identities = await prisma.userIdentity.findMany({
+    where: { userId: { in: uniqueIds }, provider: Provider.GITHUB },
+    include: { user: true },
   });
-  if (profiles.length === 0) {
+  if (identities.length === 0) {
     return { ok: false, error: "Selected users were not found." };
   }
 
   const now = new Date();
   await prisma.$transaction(
-    profiles.map((profile) =>
+    identities.map((identity) =>
       prisma.projectMember.upsert({
         where: {
-          projectId_userId: { projectId, userId: profile.userId },
+          projectId_userId: { projectId, userId: identity.userId },
         },
         // Reactivate a soft-deleted/invited row; keep its role if already admin.
         update: {
           status: MemberStatus.ACTIVE,
           joinedAt: now,
-          email: profile.email,
-          githubLogin: profile.githubLogin,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
+          email: identity.user.email,
+          githubLogin: identity.externalLogin,
+          displayName: identity.user.displayName,
+          avatarUrl: identity.avatarUrl ?? identity.user.avatarUrl,
         },
         create: {
           projectId,
-          userId: profile.userId,
+          userId: identity.userId,
           role: ProjectRole.MEMBER,
           source: MemberSource.GITHUB,
           status: MemberStatus.ACTIVE,
           joinedAt: now,
-          email: profile.email,
-          githubLogin: profile.githubLogin,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
+          email: identity.user.email,
+          githubLogin: identity.externalLogin,
+          displayName: identity.user.displayName,
+          avatarUrl: identity.avatarUrl ?? identity.user.avatarUrl,
         },
       }),
     ),
@@ -105,7 +111,10 @@ export async function removeMember(
   });
   if (!member) return { ok: false, error: "Member not found." };
 
-  if (member.role === ProjectRole.ADMIN && (await countActiveAdmins(projectId)) <= 1) {
+  if (
+    member.role === ProjectRole.ADMIN &&
+    (await countActiveAdmins(projectId)) <= 1
+  ) {
     return { ok: false, error: "You can't remove the last admin." };
   }
 

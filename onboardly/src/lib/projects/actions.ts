@@ -1,16 +1,16 @@
 // Project write actions — create, update, delete. Called from the project
-// forms and the delete button. All run on the server and scope every write to
-// the current user's organization (Prisma bypasses RLS — isolation is enforced
-// here, not in the database).
+// forms and the delete button. Prisma bypasses RLS, so mutations re-check the
+// current user's project membership in app logic.
 
 "use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentOrganization } from "@/lib/projects/queries";
-import { requireProjectAdmin } from "@/lib/members/access";
+import { getCurrentUserId, requireProjectAdmin } from "@/lib/members/access";
 import {
+  ConnectionStatus,
+  Provider,
   ProjectStatus,
   ProjectRole,
   MemberSource,
@@ -40,8 +40,8 @@ export async function createProject(
   _prevState: ProjectFormState,
   formData: FormData,
 ): Promise<ProjectFormState> {
-  const org = await getCurrentOrganization();
-  if (!org) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
     return { error: "You must be signed in to create a project." };
   }
 
@@ -55,37 +55,71 @@ export async function createProject(
     statusInput && isProjectStatus(statusInput)
       ? statusInput
       : ProjectStatus.DRAFT;
+  const githubRepo = optionalField(formData, "githubRepo");
+  const slackWorkspace = optionalField(formData, "slackWorkspace");
 
-  // Create the project and seat the creator as its first ADMIN member in one
-  // transaction, so the membership layer has an owner from the start.
+  // Create the project, seat its creator, and record initial connections in one
+  // transaction so every project starts with a real access path.
   const project = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId },
+    });
+    const identity = await tx.userIdentity.findUnique({
+      where: {
+        userId_provider: { userId, provider: Provider.GITHUB },
+      },
+    });
     const created = await tx.project.create({
       data: {
-        organizationId: org.id,
+        ownerId: userId,
         name,
         description: optionalField(formData, "description"),
-        githubRepo: optionalField(formData, "githubRepo"),
-        slackWorkspace: optionalField(formData, "slackWorkspace"),
         status,
       },
     });
 
-    const profile = await tx.userProfile.findUnique({
-      where: { userId: org.ownerId },
-    });
     await tx.projectMember.create({
       data: {
         projectId: created.id,
-        userId: org.ownerId,
+        userId,
         role: ProjectRole.ADMIN,
         source: MemberSource.MANUAL,
         status: MemberStatus.ACTIVE,
         joinedAt: new Date(),
-        email: profile?.email ?? null,
-        githubLogin: profile?.githubLogin ?? null,
-        displayName: profile?.displayName ?? null,
-        avatarUrl: profile?.avatarUrl ?? null,
+        email: user.email,
+        githubLogin: identity?.externalLogin ?? null,
+        displayName: user.displayName,
+        avatarUrl: identity?.avatarUrl ?? user.avatarUrl,
       },
+    });
+
+    await tx.projectConnection.createMany({
+      data: [
+        ...(githubRepo
+          ? [
+              {
+                projectId: created.id,
+                provider: Provider.GITHUB,
+                externalRef: githubRepo,
+                status: ConnectionStatus.CONNECTED,
+                connectedAt: new Date(),
+              },
+            ]
+          : []),
+        ...(slackWorkspace
+          ? [
+              {
+                projectId: created.id,
+                provider: Provider.SLACK,
+                externalRef: slackWorkspace,
+                status: ConnectionStatus.CONNECTED,
+                connectedAt: new Date(),
+              },
+            ]
+          : []),
+      ],
     });
 
     return created;
@@ -117,15 +151,56 @@ export async function updateProject(
   const status =
     statusInput && isProjectStatus(statusInput) ? statusInput : existing.status;
 
-  await prisma.project.update({
-    where: { id: existing.id },
-    data: {
-      name,
-      description: optionalField(formData, "description"),
-      githubRepo: optionalField(formData, "githubRepo"),
-      slackWorkspace: optionalField(formData, "slackWorkspace"),
-      status,
+  const connections = [
+    {
+      provider: Provider.GITHUB,
+      externalRef: optionalField(formData, "githubRepo"),
     },
+    {
+      provider: Provider.SLACK,
+      externalRef: optionalField(formData, "slackWorkspace"),
+    },
+  ];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.project.update({
+      where: { id: existing.id },
+      data: {
+        name,
+        description: optionalField(formData, "description"),
+        status,
+      },
+    });
+
+    for (const connection of connections) {
+      if (!connection.externalRef) {
+        await tx.projectConnection.deleteMany({
+          where: { projectId: existing.id, provider: connection.provider },
+        });
+        continue;
+      }
+
+      await tx.projectConnection.upsert({
+        where: {
+          projectId_provider: {
+            projectId: existing.id,
+            provider: connection.provider,
+          },
+        },
+        update: {
+          externalRef: connection.externalRef,
+          status: ConnectionStatus.CONNECTED,
+          connectedAt: new Date(),
+        },
+        create: {
+          projectId: existing.id,
+          provider: connection.provider,
+          externalRef: connection.externalRef,
+          status: ConnectionStatus.CONNECTED,
+          connectedAt: new Date(),
+        },
+      });
+    }
   });
 
   revalidatePath("/projects");

@@ -1,6 +1,6 @@
-// B1 backfill (T-MEM-1): ensure every existing project has its org owner as an
-// ACTIVE ADMIN ProjectMember. Idempotent — re-running is a no-op thanks to the
-// @@unique([projectId, userId]) constraint (upsert with an empty update).
+// Repair utility: ensure every project owner has an ACTIVE ADMIN membership.
+// The greenfield model creates this row transactionally, but this remains useful
+// after manual imports. Idempotent via @@unique([projectId, userId]).
 //
 // Run once after `npm run db:push`:
 //   npx tsx --env-file=.env.local scripts/backfill-owner-members.ts
@@ -14,14 +14,19 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const projects = await prisma.project.findMany({
-    include: { organization: true },
+    include: {
+      owner: true,
+    },
   });
   console.log(`Found ${projects.length} project(s).`);
 
   let created = 0;
   let existed = 0;
   for (const project of projects) {
-    const ownerId = project.organization.ownerId;
+    const ownerId = project.ownerId;
+    const identity = await prisma.userIdentity.findUnique({
+      where: { userId_provider: { userId: ownerId, provider: "GITHUB" } },
+    });
     const before = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId: project.id, userId: ownerId } },
     });
@@ -36,13 +41,19 @@ async function main() {
         source: "MANUAL",
         status: "ACTIVE",
         joinedAt: new Date(),
+        email: project.owner.email,
+        githubLogin: identity?.externalLogin ?? null,
+        displayName: project.owner.displayName,
+        avatarUrl: identity?.avatarUrl ?? project.owner.avatarUrl,
       },
     });
     if (before) existed++;
     else created++;
   }
 
-  console.log(`Owner members — created: ${created}, already present: ${existed}`);
+  console.log(
+    `Owner members — created: ${created}, already present: ${existed}`,
+  );
 
   const total = await prisma.projectMember.count();
   const admins = await prisma.projectMember.count({ where: { role: "ADMIN" } });

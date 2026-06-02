@@ -28,13 +28,23 @@ export async function searchKnowledge(
   // pgvector expects a Postgres literal like '[0.1,0.2,...]', not a JS array.
   const vectorLiteral = `[${vector.join(",")}]`;
 
-  type Row = { id: string; content: string; source_label: string; distance: number };
+  type Row = {
+    id: string;
+    content: string;
+    source_label: string;
+    distance: number;
+  };
 
   const rows = await prisma.$queryRaw<Row[]>(
     Prisma.sql`
-      SELECT id, content, source_label, embedding <=> ${vectorLiteral}::vector AS distance
-      FROM embeddings
-      WHERE project_id = ${projectId}::uuid
+      SELECT chunk.id,
+             chunk.content,
+             chunk.citation AS source_label,
+             stored.embedding <=> ${vectorLiteral}::vector AS distance
+      FROM embeddings stored
+      JOIN document_chunks chunk ON chunk.id = stored.chunk_id
+      JOIN documents document ON document.id = chunk.document_id
+      WHERE document.project_id = ${projectId}::uuid
       ORDER BY distance
       LIMIT ${topK}
     `,

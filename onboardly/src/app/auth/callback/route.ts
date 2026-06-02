@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { GH_PROVIDER_TOKEN_COOKIE } from "@/lib/github/oauth";
-import { upsertUserProfile } from "@/lib/auth/profile";
+import { upsertUserIdentity } from "@/lib/auth/profile";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
       const user = data.session?.user;
       if (user) {
         try {
-          await upsertUserProfile(user);
+          await upsertUserIdentity(user);
         } catch (profileError) {
-          console.error("Failed to upsert user profile:", profileError);
+          console.error("Failed to upsert user identity:", profileError);
         }
       }
 

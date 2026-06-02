@@ -1,6 +1,6 @@
 // Project overview — the project's details (name, description, status, connected
 // repo/workspace) plus entry points to the course, chat, members, and admin
-// surfaces. Access via getProjectAccess: org owners + ACTIVE members can view;
+// surfaces. Access via getProjectAccess: ACTIVE members can view;
 // only admins see Edit/Delete and the Admin section. 404s when no access.
 
 import Link from "next/link";
@@ -17,6 +17,7 @@ import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { RoleBadge } from "@/components/members/RoleBadge";
 import { getProjectAccess } from "@/lib/members/access";
+import { getProjectConnectionRefs } from "@/lib/projects/connections";
 import { ProjectRole } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export default async function ProjectOverviewPage({
   }
   const { project, role } = access;
   const isAdmin = role === ProjectRole.ADMIN;
+  const connections = await getProjectConnectionRefs(project.id);
 
   const sections = [
     {
@@ -105,7 +107,7 @@ export default async function ProjectOverviewPage({
               GitHub repo
             </p>
             <p className="text-sm">
-              {project.githubRepo ?? "Not connected"}
+              {connections.githubRepo ?? "Not connected"}
             </p>
           </div>
           <div>
@@ -113,7 +115,7 @@ export default async function ProjectOverviewPage({
               Slack workspace
             </p>
             <p className="text-sm">
-              {project.slackWorkspace ?? "Not connected"}
+              {connections.slackWorkspace ?? "Not connected"}
             </p>
           </div>
         </CardContent>

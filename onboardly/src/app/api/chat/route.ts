@@ -16,7 +16,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { getGemini, GEMINI_CHAT_MODEL } from "@/lib/ai/gemini";
 import { getProjectAccess } from "@/lib/members/access";
 import { searchKnowledge } from "@/lib/rag/search";
@@ -52,12 +51,22 @@ export async function POST(req: NextRequest) {
   if (!message || typeof message !== "string" || !message.trim()) {
     return Response.json({ error: "message is required" }, { status: 400 });
   }
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!projectId || typeof projectId !== "string" || !UUID_RE.test(projectId)) {
-    return Response.json({ error: "projectId must be a valid UUID" }, { status: 400 });
+    return Response.json(
+      { error: "projectId must be a valid UUID" },
+      { status: 400 },
+    );
   }
-  if (chatId !== undefined && (typeof chatId !== "string" || !UUID_RE.test(chatId))) {
-    return Response.json({ error: "chatId must be a valid UUID" }, { status: 400 });
+  if (
+    chatId !== undefined &&
+    (typeof chatId !== "string" || !UUID_RE.test(chatId))
+  ) {
+    return Response.json(
+      { error: "chatId must be a valid UUID" },
+      { status: 400 },
+    );
   }
 
   if (!(await getProjectAccess(projectId))) {
@@ -156,7 +165,15 @@ export async function POST(req: NextRequest) {
         chatId: resolvedChatId,
         role: "ASSISTANT",
         content: answer,
-        citations: citations.length > 0 ? (citations as unknown as Prisma.InputJsonArray) : undefined,
+        citations:
+          chunks.length > 0
+            ? {
+                create: chunks.map((chunk) => ({
+                  chunkId: chunk.id,
+                  label: chunk.sourceLabel,
+                })),
+              }
+            : undefined,
       },
     }),
   ]);

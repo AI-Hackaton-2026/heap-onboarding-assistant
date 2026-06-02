@@ -1,6 +1,6 @@
-// Projects list — every project the current user can see: those they own plus
-// projects they're an ACTIVE member of (cross-org). Each card is tagged with the
-// caller's role. Access is enforced in app logic (Prisma bypasses RLS).
+// Projects list — every project where the current user has an ACTIVE
+// membership. Each card is tagged with their role. Access is enforced in app
+// logic because Prisma bypasses RLS.
 
 import Link from "next/link";
 import {

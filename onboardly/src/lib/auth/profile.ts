@@ -1,13 +1,13 @@
-// UserProfile upsert — keeps the Onboardly directory (Supabase user → GitHub
-// identity) in sync so collaborator discovery can intersect "repo collaborators"
-// with real Onboardly users.
+// User + provider identity upsert. Keeps the app-owned user directory in sync
+// so collaborator discovery can intersect GitHub repo collaborators with real
+// Onboardly users.
 //
 // Called from the OAuth/email callback after exchangeCodeForSession. For GitHub
 // logins, Supabase puts the GitHub login under user_metadata.user_name and the
-// avatar/name under avatar_url/name; email-only users get a profile too (no
-// githubLogin) so the row always exists for the current user.
+// avatar/name under avatar_url/name. Email-only users still get a User row.
 
 import { prisma } from "@/lib/db/prisma";
+import { Provider } from "@/generated/prisma/enums";
 import type { User } from "@supabase/supabase-js";
 
 /** Read a string field from a metadata object, or null when absent/non-string. */
@@ -20,12 +20,11 @@ function metaString(
 }
 
 /**
- * Upsert the current user's profile from their Supabase auth record. GitHub
- * login is stored lowercased (logins are case-insensitive) — it's the join key
- * for collaborator matching. Best-effort: callers should not fail the sign-in
- * if this throws (the profile fills in on the next login).
+ * Upsert the current user and, for GitHub logins, their provider identity.
+ * GitHub login is stored lowercased because it is the collaborator join key.
+ * Best-effort: callers should not fail sign-in if this throws.
  */
-export async function upsertUserProfile(user: User): Promise<void> {
+export async function upsertUserIdentity(user: User): Promise<void> {
   const metadata = user.user_metadata as Record<string, unknown> | undefined;
 
   const githubLogin = metaString(metadata, "user_name")?.toLowerCase() ?? null;
@@ -33,23 +32,43 @@ export async function upsertUserProfile(user: User): Promise<void> {
     metaString(metadata, "name") ?? metaString(metadata, "full_name");
   const avatarUrl = metaString(metadata, "avatar_url");
   const email = user.email ?? metaString(metadata, "email");
+  const externalId =
+    metaString(metadata, "provider_id") ?? metaString(metadata, "sub");
 
-  await prisma.userProfile.upsert({
-    where: { userId: user.id },
+  await prisma.user.upsert({
+    where: { id: user.id },
     update: {
-      // Only overwrite with non-null values so an email re-login doesn't wipe a
-      // previously-captured GitHub identity.
       ...(email ? { email } : {}),
-      ...(githubLogin ? { githubLogin } : {}),
       ...(displayName ? { displayName } : {}),
       ...(avatarUrl ? { avatarUrl } : {}),
     },
     create: {
-      userId: user.id,
+      id: user.id,
       email,
-      githubLogin,
       displayName,
       avatarUrl,
+    },
+  });
+
+  if (!githubLogin) return;
+
+  await prisma.userIdentity.upsert({
+    where: {
+      userId_provider: { userId: user.id, provider: Provider.GITHUB },
+    },
+    update: {
+      externalLogin: githubLogin,
+      ...(externalId ? { externalId } : {}),
+      ...(avatarUrl ? { avatarUrl } : {}),
+      isLogin: true,
+    },
+    create: {
+      userId: user.id,
+      provider: Provider.GITHUB,
+      externalId,
+      externalLogin: githubLogin,
+      avatarUrl,
+      isLogin: true,
     },
   });
 }

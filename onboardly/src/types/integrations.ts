@@ -1,20 +1,17 @@
-// GitHub and Slack integration types.
+// Normalized GitHub and Slack project-connection types.
 
 import type { ISODateString, UUID } from "./database";
 
-export type IntegrationProvider = "github" | "slack";
-export type IntegrationStatus =
-  | "disconnected"
-  | "connected"
-  | "syncing"
-  | "error";
+export type ConnectionProvider = "GITHUB" | "SLACK";
+export type ConnectionStatus = "DISCONNECTED" | "CONNECTED" | "ERROR";
 
-export interface Integration {
+export interface ProjectConnection {
   id: UUID;
   projectId: UUID;
-  provider: IntegrationProvider;
-  status: IntegrationStatus;
-  /** Provider-specific connection reference (installation id, workspace id, etc.). */
-  externalId: string | null;
-  lastSyncedAt: ISODateString | null;
+  provider: ConnectionProvider;
+  status: ConnectionStatus;
+  /** Repo name or workspace reference. */
+  externalRef: string | null;
+  installationId: string | null;
+  connectedAt: ISODateString | null;
 }

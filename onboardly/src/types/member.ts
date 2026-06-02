@@ -1,5 +1,5 @@
 // Membership view-model types. These shape what the members data layer returns
-// to the UI; the Prisma models (ProjectMember, UserProfile, LessonProgress) are
+// to the UI; Prisma models (ProjectMember, UserIdentity, LessonProgress) are
 // the DB source of truth. Enum values mirror Prisma's ProjectRole / MemberStatus
 // — import the runtime enums from "@/generated/prisma/enums" in client code to
 // keep the full Prisma client out of the bundle (per the Phase-2 pattern).
@@ -9,7 +9,7 @@ import type { ProjectRole, MemberStatus } from "@/generated/prisma/enums";
 
 /**
  * Result of an access check for a project. `null` means no access (→ notFound).
- * Org owner ⇒ effective role ADMIN; an ACTIVE member ⇒ their stored role.
+ * An ACTIVE member receives their stored project role.
  */
 export interface ProjectAccess {
   project: Project;
@@ -47,9 +47,9 @@ export interface CandidateOnboardlyUser {
 /**
  * A repo collaborator surfaced in the "Add members" dialog, annotated with
  * whether they can be added.
- *  - addable: has an Onboardly profile and isn't already an ACTIVE member.
+ *  - addable: has an Onboardly identity and isn't already an ACTIVE member.
  *  - alreadyMember: an ACTIVE member of this project already.
- *  - noAccount: no Onboardly profile (greyed-out, informational).
+ *  - noAccount: no Onboardly identity (greyed-out, informational).
  *  - self: the current admin themselves (excluded from adding).
  */
 export interface MemberCandidate {

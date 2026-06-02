@@ -9,12 +9,17 @@ import { revalidatePath } from "next/cache";
 import { headers, cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { GH_PROVIDER_TOKEN_COOKIE } from "@/lib/github/oauth";
+import { upsertUserIdentity } from "@/lib/auth/profile";
 
 type AuthState = { error: string } | undefined;
 
 function safeRedirectPath(value: FormDataEntryValue | null): string {
   // Only allow internal paths to avoid open-redirects.
-  if (typeof value === "string" && value.startsWith("/") && !value.startsWith("//")) {
+  if (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//")
+  ) {
     return value;
   }
   return "/dashboard";
@@ -33,10 +38,21 @@ export async function signInWithPassword(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (data.user) {
+    try {
+      await upsertUserIdentity(data.user);
+    } catch (profileError) {
+      console.error("Failed to upsert user identity:", profileError);
+    }
   }
 
   revalidatePath("/", "layout");
@@ -57,7 +73,8 @@ export async function signUpWithPassword(
     return { error: "Password must be at least 8 characters." };
   }
 
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL;
+  const origin =
+    (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL;
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
@@ -75,7 +92,8 @@ export async function signUpWithPassword(
 
 export async function signInWithGitHub(formData: FormData): Promise<void> {
   const redirectTo = safeRedirectPath(formData.get("redirectTo"));
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL;
+  const origin =
+    (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL;
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({

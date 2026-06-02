@@ -1,14 +1,11 @@
-// Project access guards. These supersede the old org-scoped getProject for any
-// surface a *member* (not just the org owner) can reach. Prisma connects as
-// `postgres` and bypasses Supabase RLS, so access is enforced here in app logic:
+// Project access guards. Prisma connects as `postgres` and bypasses Supabase
+// RLS, so access is enforced here in app logic:
 //
-//   - Org owner            ⇒ effective role ADMIN (always, even without a row).
 //   - ACTIVE ProjectMember ⇒ their stored role (ADMIN | MEMBER).
 //   - anyone else          ⇒ no access (null).
 //
-// Membership grants access to *that one project only*, never the whole foreign
-// org — that's the cross-org visibility rule. Every mutation re-checks admin via
-// requireProjectAdmin; hiding a button in the UI is not a security boundary.
+// Membership grants access to that one project only. Every mutation re-checks
+// admin via requireProjectAdmin; hiding a button is not a security boundary.
 
 import { prisma } from "@/lib/db/prisma";
 import { createClient } from "@/lib/supabase/server";
@@ -26,9 +23,8 @@ export async function getCurrentUserId(): Promise<string | null> {
 
 /**
  * Resolve the current user's access to a single project. Returns the project and
- * the caller's effective role, or null when they neither own the project's org
- * nor are an ACTIVE member of it. This is the canonical read guard — pages should
- * `notFound()` on null.
+ * the caller's effective role, or null when they are not an ACTIVE member.
+ * This is the canonical read guard; pages should `notFound()` on null.
  */
 export async function getProjectAccess(
   projectId: string,
@@ -36,18 +32,9 @@ export async function getProjectAccess(
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { organization: { select: { ownerId: true } } },
-  });
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return null;
 
-  // Org owner ⇒ always ADMIN, even if no member row exists yet.
-  if (project.organization.ownerId === userId) {
-    return { project, role: ProjectRole.ADMIN };
-  }
-
-  // Otherwise the caller must be an ACTIVE member of this specific project.
   const membership = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
     select: { role: true, status: true },

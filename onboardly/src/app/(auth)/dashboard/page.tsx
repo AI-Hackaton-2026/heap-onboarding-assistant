@@ -1,5 +1,5 @@
-// Main authenticated dashboard — every project the user can see: owned plus
-// projects they're an ACTIVE member of (cross-org), each tagged with their role.
+// Main authenticated dashboard — every project where the user has an ACTIVE
+// membership, each tagged with their project role.
 
 import Link from "next/link";
 import {

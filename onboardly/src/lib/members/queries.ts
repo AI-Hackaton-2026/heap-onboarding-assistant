@@ -1,12 +1,15 @@
-// Member reads — the project roster, the cross-org "projects I can see" union,
-// and the derived onboarding %. All scoping/role logic lives here (Prisma
-// bypasses RLS). Onboarding % is *always* derived from LessonProgress vs. the
-// project's total lessons — never stored — and is null ("Not started") until a
-// course with lessons exists (Phases 8–10), so this stays stub-safe today.
+// Member reads — the project roster, accessible projects, and derived
+// onboarding %. All scoping/role logic lives here because Prisma bypasses RLS.
+// Onboarding % is derived from LessonProgress vs. the project's total lessons;
+// it is null ("Not started") until a course with lessons exists.
 
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentUserId } from "@/lib/members/access";
-import { ProjectRole, MemberStatus, ProgressStatus } from "@/generated/prisma/enums";
+import { getCurrentUserId, getProjectAccess } from "@/lib/members/access";
+import {
+  MemberStatus,
+  ProgressStatus,
+  Provider,
+} from "@/generated/prisma/enums";
 import type { AccessibleProject, RosterMember } from "@/types/member";
 
 /**
@@ -36,9 +39,11 @@ export function computeOnboardingPercent(
 /**
  * The ACTIVE roster for a project, each row carrying a derived onboarding %.
  * Soft-deleted (REMOVED) members are filtered out. Sorted admins-first, then by
- * join time. Caller is responsible for the access check (this is a plain read).
+ * join time. Returns an empty list when the caller cannot access the project.
  */
 export async function listMembers(projectId: string): Promise<RosterMember[]> {
+  if (!(await getProjectAccess(projectId))) return [];
+
   const totalLessons = await countProjectLessons(projectId);
 
   const members = await prisma.projectMember.findMany({
@@ -51,23 +56,29 @@ export async function listMembers(projectId: string): Promise<RosterMember[]> {
     orderBy: [{ role: "asc" }, { joinedAt: "asc" }, { createdAt: "asc" }],
   });
 
-  // ProjectMember snapshots identity at add-time, but back-filled/owner rows can
-  // have null fields (created before a UserProfile existed). Fall back to the
-  // live UserProfile so the roster never shows "Unknown" for a real user.
-  const profiles = await prisma.userProfile.findMany({
-    where: { userId: { in: members.map((m) => m.userId) } },
+  // ProjectMember snapshots identity at add-time. Fall back to the current
+  // GitHub identity + user row so stale or sparse snapshots still render.
+  const identities = await prisma.userIdentity.findMany({
+    where: {
+      userId: { in: members.map((member) => member.userId) },
+      provider: Provider.GITHUB,
+    },
+    include: { user: true },
   });
-  const profileByUserId = new Map(profiles.map((p) => [p.userId, p]));
+  const identityByUserId = new Map(
+    identities.map((identity) => [identity.userId, identity]),
+  );
 
   return members.map((m) => {
-    const profile = profileByUserId.get(m.userId);
+    const identity = identityByUserId.get(m.userId);
     return {
       id: m.id,
       userId: m.userId,
-      email: m.email ?? profile?.email ?? null,
-      githubLogin: m.githubLogin ?? profile?.githubLogin ?? null,
-      displayName: m.displayName ?? profile?.displayName ?? null,
-      avatarUrl: m.avatarUrl ?? profile?.avatarUrl ?? null,
+      email: m.email ?? identity?.user.email ?? null,
+      githubLogin: m.githubLogin ?? identity?.externalLogin ?? null,
+      displayName: m.displayName ?? identity?.user.displayName ?? null,
+      avatarUrl:
+        m.avatarUrl ?? identity?.avatarUrl ?? identity?.user.avatarUrl ?? null,
       role: m.role,
       status: m.status,
       joinedAt: m.joinedAt?.toISOString() ?? null,
@@ -80,40 +91,22 @@ export async function listMembers(projectId: string): Promise<RosterMember[]> {
 }
 
 /**
- * Every project the current user can see, tagged with their effective role:
- * the union of (a) projects in orgs they own ⇒ ADMIN, and (b) projects where
- * they're an ACTIVE member ⇒ their stored role. Membership grants visibility of
- * that one project only — never the rest of the foreign org. Most-recently-
- * updated first. Empty when unauthenticated.
+ * Every project where the current user is an ACTIVE member, tagged with their
+ * project role. Creator access follows the same path because creation inserts an
+ * ACTIVE ADMIN membership. Most-recently-updated first.
  */
 export async function listAccessibleProjects(): Promise<AccessibleProject[]> {
   const userId = await getCurrentUserId();
   if (!userId) return [];
 
-  // (a) Owned projects — caller owns the org ⇒ ADMIN on all of them.
-  const owned = await prisma.project.findMany({
-    where: { organization: { ownerId: userId } },
-    orderBy: { updatedAt: "desc" },
-  });
-  const ownedIds = new Set(owned.map((p) => p.id));
-
-  // (b) Projects the caller is an ACTIVE member of (may live in other orgs).
   const memberships = await prisma.projectMember.findMany({
     where: { userId, status: MemberStatus.ACTIVE },
     include: { project: true },
   });
 
-  const byId = new Map<string, AccessibleProject>();
-  for (const project of owned) {
-    byId.set(project.id, { project, role: ProjectRole.ADMIN });
-  }
-  for (const m of memberships) {
-    // Owned projects already counted as ADMIN — don't downgrade them.
-    if (ownedIds.has(m.projectId)) continue;
-    byId.set(m.projectId, { project: m.project, role: m.role });
-  }
-
-  return [...byId.values()].sort(
-    (a, b) => b.project.updatedAt.getTime() - a.project.updatedAt.getTime(),
-  );
+  return memberships
+    .map(({ project, role }) => ({ project, role }))
+    .sort(
+      (a, b) => b.project.updatedAt.getTime() - a.project.updatedAt.getTime(),
+    );
 }

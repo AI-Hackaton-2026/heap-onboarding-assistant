@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { requireProjectAdmin } from "@/lib/members/access";
+import { getProjectConnectionRefs } from "@/lib/projects/connections";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function EditProjectPage({
     notFound();
   }
   const project = access.project;
+  const connections = await getProjectConnectionRefs(project.id);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -44,7 +46,9 @@ export default async function EditProjectPage({
       <Card>
         <CardHeader>
           <CardTitle>Project details</CardTitle>
-          <CardDescription>Update this project&apos;s settings.</CardDescription>
+          <CardDescription>
+            Update this project&apos;s settings.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ProjectForm
@@ -52,8 +56,8 @@ export default async function EditProjectPage({
               id: project.id,
               name: project.name,
               description: project.description,
-              githubRepo: project.githubRepo,
-              slackWorkspace: project.slackWorkspace,
+              githubRepo: connections.githubRepo,
+              slackWorkspace: connections.slackWorkspace,
               status: project.status,
             }}
           />

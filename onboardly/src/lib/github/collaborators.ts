@@ -5,8 +5,8 @@
 // they're granted access. This uses an installation access token (the GitHub App
 // must be installed on the repo); see src/lib/github/client.ts for token minting.
 //
-// The returned `login` (lowercased) is the join key against UserProfile.githubLogin
-// — see src/lib/members/candidates.ts.
+// The returned `login` is the lowercased join key against
+// UserIdentity.externalLogin; see src/lib/members/candidates.ts.
 
 import { installationAuthHeaders } from "@/lib/github/client";
 
@@ -18,20 +18,20 @@ export interface RepoCollaborator {
   avatarUrl: string | null;
 }
 
-/** Owner + repo name parsed from a stored githubRepo field. */
+/** Owner + repo name parsed from a stored GitHub connection reference. */
 export interface RepoRef {
   owner: string;
   repo: string;
 }
 
 /**
- * Parse a stored githubRepo value into { owner, repo }. Accepts the common forms
+ * Parse a stored repo reference into { owner, repo }. Accepts the common forms
  * we let admins enter: "owner/repo", a full "https://github.com/owner/repo(.git)"
  * URL, or "github.com/owner/repo". Returns null when it can't be parsed.
  */
-export function parseRepoRef(githubRepo: string | null): RepoRef | null {
-  if (!githubRepo) return null;
-  let value = githubRepo.trim();
+export function parseRepoRef(repoReference: string | null): RepoRef | null {
+  if (!repoReference) return null;
+  let value = repoReference.trim();
   if (value.length === 0) return null;
 
   // Strip a scheme + host if a URL was pasted.
@@ -54,7 +54,7 @@ interface GitHubCollaboratorResponse {
 
 /**
  * List all collaborators on a repo via the installation token, following
- * pagination. Logins are lowercased to match how we store UserProfile.githubLogin.
+ * pagination. Logins are lowercased to match UserIdentity.externalLogin.
  * Throws on a non-OK response so callers can surface a connection error.
  */
 export async function listRepoCollaborators(

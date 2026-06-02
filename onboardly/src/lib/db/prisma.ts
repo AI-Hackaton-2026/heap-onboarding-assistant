@@ -5,7 +5,7 @@
 // connections during Next.js dev hot-reload.
 //
 // NOTE: Prisma connects as the `postgres` role and bypasses Supabase RLS —
-// always scope queries by the authenticated user's organization in app logic.
+// always enforce project membership in app logic.
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";

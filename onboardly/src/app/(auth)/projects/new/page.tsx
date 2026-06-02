@@ -1,5 +1,5 @@
 // New project page — renders the create form. The createProject action writes
-// the project under the current user's organization and redirects to it.
+// a user-owned project with its creator ADMIN membership and redirects to it.
 
 import Link from "next/link";
 import {
@@ -31,9 +31,7 @@ export default function NewProjectPage() {
       <Card>
         <CardHeader>
           <CardTitle>Project details</CardTitle>
-          <CardDescription>
-            You can change any of this later.
-          </CardDescription>
+          <CardDescription>You can change any of this later.</CardDescription>
         </CardHeader>
         <CardContent>
           <ProjectForm />
