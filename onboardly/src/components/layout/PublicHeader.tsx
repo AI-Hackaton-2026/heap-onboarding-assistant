@@ -1,9 +1,9 @@
 // Simple header for public (unauthenticated) pages.
 
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { AppIcon } from "@/components/layout/AppIcon";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
@@ -19,9 +19,7 @@ export function PublicHeader() {
           href="/"
           className="font-heading flex items-center gap-2 text-lg font-semibold"
         >
-          <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg">
-            <Sparkles className="size-4" />
-          </span>
+          <AppIcon className="size-8" />
           Onboardly
         </Link>
 
