@@ -10,6 +10,17 @@ Not Started
 
 ## History
 
+### Core Project Management (Phase 2)
+
+Built the real project-management layer: an auto-provisioned organization per user plus full project CRUD backed by Prisma/Supabase, replacing the mock-data placeholders on the dashboard and projects pages. This is the prerequisite for the Phase-3 GitHub repo-connection flow (the `integrations` table FKs to a real `projects` row — the DB had 0 orgs / 0 projects before this).
+
+- **Org auto-create (minimal):** `getCurrentOrganization()` returns the user's org or creates one on first use (owner = Supabase auth user id), so projects always have a tenant. No org-management UI this slice. (`src/lib/projects/queries.ts`.)
+- **Project CRUD:** `createProject` / `updateProject` / `deleteProject` server actions (`src/lib/projects/actions.ts`) + scoped reads `listProjects` / `getProject` (`queries.ts`). Fields: Name, Description, GitHub repo, Slack workspace, Status (`DRAFT | SYNCING | READY | ERROR`). Inputs validated; optional text fields normalize empty → null; status validated against the Prisma enum.
+- **Tenant isolation in app logic:** every read/write is scoped to the current user's org (Prisma bypasses RLS). `getProject` doubles as the isolation guard before update/delete; detail/edit pages `notFound()` on a foreign or missing id.
+- **UI:** `/projects` (real list + "New project"), `/projects/new` (create), `/projects/[projectId]` (details: name/description/status, GitHub/Slack connections, Edit/Delete), `/projects/[projectId]/edit` (prefilled). Dashboard now lists real projects. Shared `ProjectForm` (create+edit via `useActionState`), `DeleteProjectButton` (confirm), `ProjectStatusBadge`. Added shadcn `textarea` + `label` primitives. All `force-dynamic`, behind the existing `(auth)` guard.
+- **Type reconciliation:** `src/types/project.ts` `Project` aligned to the Prisma model (`status: ProjectStatus`, nullable `description`); mock data updated. Client components import the `ProjectStatus` enum from `@/generated/prisma/enums` (not the full client) to keep it out of the client bundle.
+- **Verified:** `next lint` + `next build` pass (0 errors). Data layer exercised directly against real Supabase: org auto-create is idempotent, create/list/update/delete work, and **tenant isolation holds** (a second org is blocked from reading/updating/deleting another org's project). Dev server boots clean; unauthenticated `/projects` → `/login` redirect confirmed. **Note:** the authenticated browser click-through (create→view→edit→delete in the UI) was not run — needs login creds. **Also in this branch (separate work):** purple theme refresh in `globals.css` + app icon (`icon1/2.png`, `AppIcon`), and session docs — a team task board (`context/tasks.md`), a members/admin design spec (`context/features/project-members-and-admin.md`), and a new **responsive-by-default** standard in `coding-standards.md` / `ai-interaction.md`.
+
 ### GitHub Login + Auto-Connect & List Repos (Phase 3 start)
 
 Finished the "Continue with GitHub" login and used it to list the user's repositories, flagging which are ingestion-ready. Resolved the two-GitHub-identities question with the **"Both"** approach: the OAuth `provider_token` powers the immediate full-repo listing, while the GitHub App installation is detected and surfaced as an "ingestion-ready" flag (App installation stays the Phase-3 ingestion path).

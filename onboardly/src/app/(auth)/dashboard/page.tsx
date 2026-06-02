@@ -1,4 +1,5 @@
-// Main authenticated dashboard placeholder — shows the user's projects.
+// Main authenticated dashboard — shows the current organization's projects
+// from the database (tenant-scoped via listProjects).
 
 import Link from "next/link";
 import {
@@ -7,33 +8,60 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { mockProjects } from "@/data/mock/projects";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
+import { listProjects } from "@/lib/projects/queries";
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const projects = await listProjects();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">
-          Your onboarding projects.
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">
+            Your onboarding projects.
+          </p>
+        </div>
+        <Button asChild size="sm">
+          <Link href="/projects/new">New project</Link>
+        </Button>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {mockProjects.map((project) => (
-          <Link key={project.id} href={`/projects/${project.id}`}>
-            <Card>
-              <CardHeader>
-                <CardTitle>{project.name}</CardTitle>
-                <CardDescription>{project.description}</CardDescription>
-                <Badge className="mt-2 w-fit" variant="secondary">
-                  {project.knowledgeStatus}
-                </Badge>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
-      </div>
+
+      {projects.length === 0 ? (
+        <EmptyState
+          title="No projects yet"
+          description="Create a project to connect a repo, sync Slack, and build its knowledge base."
+          action={
+            <Button asChild>
+              <Link href="/projects/new">Create your first project</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => (
+            <Link key={project.id} href={`/projects/${project.id}`}>
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle>{project.name}</CardTitle>
+                  <CardDescription className="line-clamp-2">
+                    {project.description ?? "No description yet."}
+                  </CardDescription>
+                  <ProjectStatusBadge
+                    className="mt-2"
+                    status={project.status}
+                  />
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,15 @@ This is a single-stack project: a **Next.js (App Router) full-stack app** writte
 - Theme via **semantic theme tokens** so light/dark works globally; components reference tokens (e.g. `bg-background`, `text-foreground`, `bg-card`), not raw colors. shadcn's token set (CSS variables) is the source of truth.
 - Tailwind v4 uses `@import "tailwindcss"` + `@theme` in CSS (no `tailwind.config.js`).
 
+## Responsiveness (REQUIRED — every component, every page)
+
+- **Mobile-first and fully responsive is mandatory.** Every component and every page must render and work correctly across mobile, tablet, and desktop — no exceptions. Build mobile-first (base styles target the smallest screen) and layer breakpoints up.
+- Use Tailwind's responsive breakpoints (`sm:` 640, `md:` 768, `lg:` 1024, `xl:` 1280, `2xl:` 1536) to adapt layout, spacing, type scale, and visibility. Default (unprefixed) styles must be the mobile layout.
+- **No fixed/overflowing widths.** Prefer fluid widths, `max-w-*`, `min-w-0`, flex/grid that wrap (`flex-col` → `sm:flex-row`, `grid-cols-1` → `sm:grid-cols-2 lg:grid-cols-3`). Never let content cause horizontal scroll on a phone.
+- Tap targets are finger-sized on touch; long text truncates/wraps (`line-clamp-*`, `truncate`, `break-words`) rather than blowing out the layout.
+- Decorative-only flourishes may be gated to larger screens (e.g. `lg:`), but **content and actions must remain usable at every size**.
+- **Verify at 3 widths before considering UI done: 390 (mobile), 768 (tablet), 1440 (desktop).** A page/component is not "done" until it passes at all three.
+
 ## Formatting — Prettier
 
 - Prettier is the formatter; run it before committing. Don't hand-fight its output.
