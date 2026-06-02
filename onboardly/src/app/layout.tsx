@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Script from "next/script";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -29,8 +30,12 @@ export default function RootLayout({
       className={cn("font-sans", plusJakartaSans.variable)}
     >
       <head>
-        {/* Set the theme class before hydration to prevent a flash of the wrong theme. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Set the theme class before hydration to prevent a flash of the wrong
+            theme. next/script with beforeInteractive runs it ahead of hydration
+            and avoids React's "script tag while rendering" warning. */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
       </head>
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider>{children}</ThemeProvider>

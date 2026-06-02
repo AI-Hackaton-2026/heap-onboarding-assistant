@@ -1,6 +1,6 @@
-// Edit project page — prefills the form from the (org-scoped) project and
-// updates it via the updateProject action. 404s when the project isn't found
-// or belongs to another organization.
+// Edit project page — prefills the form and updates it via the updateProject
+// action. Admin-only: members have read access to the project but cannot edit,
+// so non-admins 404 here (the action re-checks admin server-side regardless).
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/ProjectForm";
-import { getProject } from "@/lib/projects/queries";
+import { requireProjectAdmin } from "@/lib/members/access";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +23,11 @@ export default async function EditProjectPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = await getProject(projectId);
-  if (!project) {
+  const access = await requireProjectAdmin(projectId);
+  if (!access) {
     notFound();
   }
+  const project = access.project;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

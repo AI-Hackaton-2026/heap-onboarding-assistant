@@ -8,8 +8,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentOrganization, getProject } from "@/lib/projects/queries";
-import { ProjectStatus } from "@/generated/prisma/enums";
+import { getCurrentOrganization } from "@/lib/projects/queries";
+import { requireProjectAdmin } from "@/lib/members/access";
+import {
+  ProjectStatus,
+  ProjectRole,
+  MemberSource,
+  MemberStatus,
+} from "@/generated/prisma/enums";
 
 export type ProjectFormState = { error: string } | undefined;
 
@@ -50,15 +56,39 @@ export async function createProject(
       ? statusInput
       : ProjectStatus.DRAFT;
 
-  const project = await prisma.project.create({
-    data: {
-      organizationId: org.id,
-      name,
-      description: optionalField(formData, "description"),
-      githubRepo: optionalField(formData, "githubRepo"),
-      slackWorkspace: optionalField(formData, "slackWorkspace"),
-      status,
-    },
+  // Create the project and seat the creator as its first ADMIN member in one
+  // transaction, so the membership layer has an owner from the start.
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: {
+        organizationId: org.id,
+        name,
+        description: optionalField(formData, "description"),
+        githubRepo: optionalField(formData, "githubRepo"),
+        slackWorkspace: optionalField(formData, "slackWorkspace"),
+        status,
+      },
+    });
+
+    const profile = await tx.userProfile.findUnique({
+      where: { userId: org.ownerId },
+    });
+    await tx.projectMember.create({
+      data: {
+        projectId: created.id,
+        userId: org.ownerId,
+        role: ProjectRole.ADMIN,
+        source: MemberSource.MANUAL,
+        status: MemberStatus.ACTIVE,
+        joinedAt: new Date(),
+        email: profile?.email ?? null,
+        githubLogin: profile?.githubLogin ?? null,
+        displayName: profile?.displayName ?? null,
+        avatarUrl: profile?.avatarUrl ?? null,
+      },
+    });
+
+    return created;
   });
 
   revalidatePath("/projects");
@@ -70,11 +100,13 @@ export async function updateProject(
   formData: FormData,
 ): Promise<ProjectFormState> {
   const projectId = field(formData, "projectId");
-  // Scoped fetch doubles as the tenant-isolation check before we mutate.
-  const existing = projectId ? await getProject(projectId) : null;
-  if (!existing) {
+  // Admin gate doubles as the access/isolation check before we mutate — members
+  // get read access via getProject, but only admins may edit.
+  const access = projectId ? await requireProjectAdmin(projectId) : null;
+  if (!access) {
     return { error: "Project not found." };
   }
+  const existing = access.project;
 
   const name = field(formData, "name");
   if (!name) {
@@ -103,13 +135,13 @@ export async function updateProject(
 
 export async function deleteProject(formData: FormData): Promise<void> {
   const projectId = String(formData.get("projectId") ?? "").trim();
-  const existing = projectId ? await getProject(projectId) : null;
-  if (!existing) {
-    // Nothing to delete (or not ours) — fall through to the list quietly.
+  const access = projectId ? await requireProjectAdmin(projectId) : null;
+  if (!access) {
+    // Not an admin (or not ours) — fall through to the list quietly.
     redirect("/projects");
   }
 
-  await prisma.project.delete({ where: { id: existing.id } });
+  await prisma.project.delete({ where: { id: access.project.id } });
 
   revalidatePath("/projects");
   redirect("/projects");

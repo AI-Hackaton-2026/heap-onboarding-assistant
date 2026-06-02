@@ -1,12 +1,36 @@
-# Current Feature
+# Current Feature: Project Members & Admin
 
 ## Status
 
-Not Started
+In Progress — branch `feature/project-members-and-admin` (off `development`). Deadline: tomorrow 17:00. Full spec: `context/features/project-members-and-admin.md` (+ companion `project-members-migration-plan.md`). Tasks: `T-MEM-1..4` (T-MEM-5 invite-flow deferred, T-MEM-6 lands with Course UI).
 
 ## Goals
 
+**Project Members & Admin** — let a project **admin** (creator/lead) add other Onboardly developers to a project, discovered from the project's connected **GitHub repo collaborators**, and give those developers a real **member** experience (see the project, open course + chat, view the roster). Admin keeps full project CRUD; members are read-only on project settings.
+
+Buildable scope for this slice (confirmed with user):
+
+1. **Members CRUD + roster** — `ProjectMember` model, project roles (`ADMIN` | `MEMBER`), add/remove, admin roster UI, server-side role enforcement.
+2. **GitHub discovery import** — list repo **collaborators** (`GET /repos/{owner}/{repo}/collaborators`, installation token) and intersect with Onboardly users to build the "Add members" candidate list.
+3. **Member's cross-org project view** — a developer added to a project in *another* org can see + open that one project.
+4. **Onboarding % (stub-safe)** — `LessonProgress` table + derived % now; renders "Not started" until the course system (Phases 8–10) exists. No stored percent.
+
 ## Notes
+
+Decisions locked with the user (these **supersede** the older email/contributors/invite design that the spec file previously held):
+
+- **Discovery = repo collaborators API**, not contributors — so a brand-new hire with 0 commits still appears (they have repo *access*).
+- **Identity link = GitHub login (lowercased), email fallback.** GitHub returns `login` only for collaborators, so login is the join key.
+- **Members must already have an Onboardly account** (with GitHub connected). No invite/pre-signup limbo this slice. Collaborators without an account show **greyed-out "No Onboardly account."**
+- **New `UserProfile` table** maps Supabase `userId` → `githubLogin` (+ email/avatar/name), populated on GitHub login from `user_metadata`. Discovery = repo collaborators ∩ `UserProfile`.
+- **Biggest behavioral change — cross-org visibility:** `listProjects` becomes the **union of owned ∪ member-of**; `getProject` is superseded by `getProjectAccess(projectId)` → `{ project, role } | null`. Every existing `getProject` call site (overview/edit/course/chat/admin/update/delete) must be routed through the right guard. Membership grants access to **that one project only**, never the whole foreign org.
+- **Permissions (enforced server-side, Prisma bypasses RLS):** Admin = edit/delete/connect/add-remove/see-all-progress. Member = see overview + course + chat + read-only roster; cannot edit/delete/connect/add. Don't lock out the last admin.
+
+Migration/backfill: existing projects get their org owner back-filled as an `ADMIN` member; existing users get a `UserProfile` on their next GitHub login (acceptable for demo).
+
+**Member Remove = soft-delete** (decided): set `status: REMOVED`, keep the row + `LessonProgress`, filter `status != REMOVED` everywhere (roster, access check, candidate "already added"). Re-adding reactivates the existing row (`@@unique([projectId, userId])` → upsert, not insert) so prior progress is restored.
+
+Workflow next steps: branch off `development` (`/feature start`), implement `T-MEM-1` → `T-MEM-4`, lint+build, browser-test the acceptance checklist in the spec, then commit in small logical chunks.
 
 ## History
 

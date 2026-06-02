@@ -78,14 +78,16 @@ The unified knowledge model, the cited chat assistant, and the admin controls.
 
 ## ⭐ Project Members & Admin (new — spec: `context/features/project-members-and-admin.md`)
 
-The membership + progress spine the product is missing today (no member, no per-person onboarding %, no project roles). Identity is keyed on **email**. Pull this **forward** — course progress and ownership both depend on it. Spans owners; coordinate.
+The membership + project-roles spine the product is missing today (no member, no per-person onboarding %, no project roles, single-org-only visibility). Pull this **forward** — course progress and ownership both depend on it. Spans owners; coordinate.
 
-- [ ] **`T-MEM-1` Membership + progress schema** — `TODO` — Add `ProjectMember`, `LessonProgress` (+ optional `ChecklistProgress`, `QuizAttempt`) and enums `ProjectRole` / `MemberSource` / `MemberStatus` / `ProgressStatus`; `prisma db push`. Creator auto-added as ADMIN member. **Unblocks T-MEM-2..5.**
-- [ ] **`T-MEM-2` Members data layer + roles** — `TODO` — `src/lib/members/{queries,actions}.ts`: list members, add/remove/invite, assign course, set role; **derive onboarding %** (`completed / total lessons`). Enforce ADMIN-vs-MEMBER permissions in app logic.
-- [ ] **`T-MEM-3` Import candidates (GitHub + Slack)** — `TODO` — `GET /repos/{owner}/{repo}/contributors` (installation token) and Slack `users.list` (needs `users:read.email`); merge + **dedupe by email** in `src/lib/members/candidates.ts`.
-- [ ] **`T-MEM-4` Members UI (roster + add dialog)** — `TODO` — `/projects/[projectId]/members`: roster with avatar/name/role/course/% bar/status; "Add members" dialog (GitHub / Slack / manual-by-email tabs). **Fully responsive.**
-- [ ] **`T-MEM-5` Invite + signup linking** — `TODO` — Supabase Auth invite email for INVITED members; on first sign-in, match by email → set `userId`, flip to ACTIVE.
-- [ ] **`T-MEM-6` Progress writes from Course UI** — `TODO` — Lesson complete / checklist / quiz attempts write `LessonProgress` (+ optional tables) for the current member; feeds the roster %. Integrates with `T-COURSE-4`.
+> **Approach locked with the user (supersedes the older email/contributors/invite design):** discovery via the GitHub **collaborators** API (catches new hires with 0 commits); identity linked by **GitHub login (lowercased), email fallback**; members **must already have an Onboardly account** (no invite/pre-signup flow this slice); collaborators without an account show **greyed-out "No Onboardly account"**; "projects I can see" becomes the **union of owned ∪ member-of** (cross-org). Full rationale + decision table in the spec.
+
+- [ ] **`T-MEM-1` Membership + profile + progress schema** — `TODO` — Add `UserProfile` (GitHub-login directory), `ProjectMember`, `LessonProgress` and enums `ProjectRole` / `MemberSource` / `MemberStatus` / `ProgressStatus`; `prisma db push`. Creator auto-added as ADMIN member (+ back-fill existing project owners). Populate `UserProfile` on GitHub login from Supabase `user_metadata`. **Unblocks T-MEM-2..4 + the cross-org view.**
+- [ ] **`T-MEM-2` Members data layer + roles + cross-org view** — `TODO` — `src/lib/members/{access,queries,actions}.ts`: `getProjectAccess` / `requireProjectAdmin`, list members, add/remove, set role; **derive onboarding %** (`completed / total lessons`, stub-safe → "Not started" until courses exist). Switch `listProjects` to the **owned ∪ member-of union**; route reads through the access guard. Enforce ADMIN-vs-MEMBER in app logic (Prisma bypasses RLS).
+- [ ] **`T-MEM-3` Discover candidates (GitHub collaborators)** — `TODO` — `GET /repos/{owner}/{repo}/collaborators` (installation token) in `src/lib/github/collaborators.ts`; intersect with `UserProfile` by **lowercased GitHub login** in `src/lib/members/candidates.ts` → annotate addable / already-member / no-account. (Slack + manual-by-email tabs stubbed this slice.)
+- [ ] **`T-MEM-4` Members UI (roster + add dialog)** — `TODO` — `/projects/[projectId]/members`: roster with avatar/name/login/role/% bar/status + Remove; admin "Add members" dialog (GitHub-collaborators tab live; Slack/manual stubbed). Member view is **read-only**. Entry point on overview + admin dashboard. **Fully responsive (390/768/1440).**
+- [ ] **`T-MEM-5` (deferred) Invite + signup linking** — `TODO` — Supabase Auth invite email for not-yet-signed-up people; on first sign-in match by login/email → set `userId`, flip to ACTIVE. **Out of scope for the current slice** (members must already exist); enums keep `INVITED`/`MANUAL`/`SLACK` for forward-compat.
+- [ ] **`T-MEM-6` Progress writes from Course UI** — `TODO` — Lesson complete / checklist / quiz attempts write `LessonProgress` for the current member; feeds the roster %. Integrates with `T-COURSE-4` (lands with the Course UI).
 
 > Admin dashboard (`T-ADMIN-1`) renders the members + progress overview alongside integration/sync status.
 
@@ -99,6 +101,6 @@ The membership + progress spine the product is missing today (no member, no per-
 
 - Embeddings/Search (`T-EMB-*`) gate Knowledge (`T-KB-1`), Chat (`T-CHAT-*`), and Course generation quality.
 - Ownership/Messaging (`T-OWN-1`, `T-MSG-1`) need both GitHub and Slack sync landed.
-- **Membership schema (`T-MEM-1`) gates the rest of `T-MEM-*` and the admin roster (`T-ADMIN-1`); progress writes (`T-MEM-6`) depend on the Course UI (`T-COURSE-*`).** Pull `T-MEM-1` forward.
-- Member import (`T-MEM-3`) needs GitHub + Slack connected; Slack email needs the `users:read.email` scope.
+- **Schema (`T-MEM-1`: `UserProfile` + `ProjectMember` + `LessonProgress`) gates the rest of `T-MEM-*`, the cross-org view (`T-MEM-2`), and the admin roster (`T-ADMIN-1`); progress writes (`T-MEM-6`) depend on the Course UI (`T-COURSE-*`).** Pull `T-MEM-1` forward.
+- Member discovery (`T-MEM-3`) needs the project's GitHub repo connected + the App installed (collaborators read via installation token); discoverable Onboardly users need a `UserProfile` (populated on GitHub login). Slack import + invite/signup-linking (`T-MEM-5`) are deferred.
 - All ingestion + members attach to a **project** → Phase 2 (DONE) is the prerequisite that unblocks everyone.

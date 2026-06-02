@@ -1,16 +1,24 @@
 // RAG chat placeholder — shows mock messages and a disabled composer.
-// Wiring to /api/chat + retrieval happens in a later phase.
+// Wiring to /api/chat + retrieval happens in a later phase. Open to anyone with
+// project access (admins + members); 404s otherwise.
 
+import { notFound } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { mockChatMessages } from "@/data/mock/chat";
+import { getProjectAccess } from "@/lib/members/access";
+
+export const dynamic = "force-dynamic";
 
 export default async function ChatPage({
   params,
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  await params;
+  const { projectId } = await params;
+  if (!(await getProjectAccess(projectId))) {
+    notFound();
+  }
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">

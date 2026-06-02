@@ -1,23 +1,13 @@
-// Project + organization reads. All queries are scoped to the current user's
-// organization in app logic, because Prisma connects as `postgres` and bypasses
-// Supabase RLS (see src/lib/db/prisma.ts). Never expose another org's projects.
+// Project + organization reads. Access is enforced in app logic because Prisma
+// connects as `postgres` and bypasses Supabase RLS (see src/lib/db/prisma.ts).
+// Reads now go through the membership access guard (src/lib/members/access.ts):
+// a user can see projects they own AND projects they're an ACTIVE member of
+// (cross-org), but never the rest of a foreign org. Org owner ⇒ ADMIN.
 
 import { prisma } from "@/lib/db/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserId, getProjectAccess } from "@/lib/members/access";
+import { listAccessibleProjects } from "@/lib/members/queries";
 import type { Organization, Project } from "@/generated/prisma/client";
-
-/**
- * The Supabase auth user id of the current request, or null when unauthenticated.
- * Authenticated routes are already guarded by middleware + the (auth) layout;
- * this is the value we tie organizations to (Organization.ownerId).
- */
-async function getCurrentUserId(): Promise<string | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
 
 /**
  * Ensure the current user has an organization and return it. We auto-create one
@@ -40,28 +30,26 @@ export async function getCurrentOrganization(): Promise<Organization | null> {
 }
 
 /**
- * List the current organization's projects, most-recently-updated first.
- * Returns an empty array when there is no authenticated user / org.
+ * List every project the current user can see, most-recently-updated first.
+ * This is now the union of projects they own (as org owner) ∪ projects they're
+ * an ACTIVE member of — so a developer added to a project in another org sees
+ * that one project here too. Returns an empty array when unauthenticated.
+ *
+ * Callers that need the caller's role per project should use
+ * `listAccessibleProjects()` directly; this keeps the legacy `Project[]` shape.
  */
 export async function listProjects(): Promise<Project[]> {
-  const org = await getCurrentOrganization();
-  if (!org) return [];
-
-  return prisma.project.findMany({
-    where: { organizationId: org.id },
-    orderBy: { updatedAt: "desc" },
-  });
+  const accessible = await listAccessibleProjects();
+  return accessible.map((entry) => entry.project);
 }
 
 /**
- * Fetch a single project by id, scoped to the current organization. Returns
- * null when it doesn't exist or belongs to another org (tenant isolation).
+ * Fetch a single project the current user can access (as org owner OR ACTIVE
+ * member), or null when they can't. Delegates to the access guard so membership
+ * grants visibility of that one project even across orgs. Role-gated mutations
+ * must still call `requireProjectAdmin` — read access alone is not edit access.
  */
 export async function getProject(projectId: string): Promise<Project | null> {
-  const org = await getCurrentOrganization();
-  if (!org) return null;
-
-  return prisma.project.findFirst({
-    where: { id: projectId, organizationId: org.id },
-  });
+  const access = await getProjectAccess(projectId);
+  return access?.project ?? null;
 }
