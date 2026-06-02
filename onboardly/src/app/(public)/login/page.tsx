@@ -4,9 +4,9 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { AppIcon } from "@/components/layout/AppIcon";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default async function LoginPage({
@@ -32,7 +32,11 @@ export default async function LoginPage({
   return (
     <main className="bg-background flex min-h-svh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
-        <Link href="/" className="font-heading text-base font-semibold">
+        <Link
+          href="/"
+          className="font-heading flex items-center gap-2 text-base font-semibold"
+        >
+          <AppIcon className="size-7" />
           Onboardly
         </Link>
         <ThemeToggle />
@@ -42,7 +46,7 @@ export default async function LoginPage({
         <div className="w-full max-w-sm">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <span className="bg-primary/10 text-primary inline-flex size-10 items-center justify-center rounded-xl">
-              <Sparkles className="size-5" />
+              <AppIcon className="size-9" />
             </span>
             <h1 className="font-heading text-xl font-semibold">Welcome back</h1>
             <p className="text-muted-foreground text-sm">

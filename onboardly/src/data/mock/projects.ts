@@ -13,7 +13,7 @@ export const mockProjects: Project[] = [
     description: "Demo project for the AI onboarding assistant.",
     githubRepo: "heap/onboardly",
     slackWorkspace: "Heap Team",
-    knowledgeStatus: "ready",
+    status: "READY",
     createdAt: "2026-06-02T09:00:00Z",
   },
 ];
