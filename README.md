@@ -41,13 +41,15 @@ The core idea: instead of a chatbot that makes things up, Onboardly uses **RAG (
 
 ```
   Slack API ─┐
-  GitHub API ─┼─→ Ingestion & Chunking ─→ Embeddings ─→ Vector Store (FAISS)
+  GitHub API ─┼─→ Ingestion & Chunking ─→ Embeddings (Gemini) ─→ Vector Store (Supabase pgvector)
   HR Docs ───┘
 
-  User enters role ─→ LLM (Claude / GPT-4o) ─→ ┌─ 📋 Onboarding Plan
-                                                ├─ 💬 Chat with citations
-                                                └─ 📊 HR Dashboard
+  User enters role ─→ LLM (Gemini) ─→ ┌─ 📋 Onboarding Plan
+                                       ├─ 💬 Chat with citations
+                                       └─ 📊 HR Dashboard
 ```
+
+Onboardly is a **single Next.js (App Router) full-stack app** — the UI and the API routes live in one TypeScript codebase and deploy together to Vercel.
 
 ### How RAG works (no hallucinations)
 
@@ -61,7 +63,7 @@ User asks "How do we deploy?"
 
 The model **only answers from retrieved documents**. If it can't find a relevant answer, it says so ("I couldn't find this in the company documents") rather than guessing.
 
-> **Note on data sources:** For the hackathon, Slack and GitHub content is simulated with local Markdown files under `data/mock_github/` and `data/mock_slack/`. The same LangChain loaders work against the real Slack Web API and GitHub REST API by flipping a `USE_MOCK` flag — no architectural change needed.
+> **Note on data sources:** For early development, Slack and GitHub content is simulated with mock data under `src/data/mock/`. The integration helpers under `src/lib/github` and `src/lib/slack` start as placeholders and are swapped for real Slack/GitHub sync once those integrations are wired — no architectural change needed.
 
 ---
 
@@ -69,13 +71,13 @@ The model **only answers from retrieved documents**. If it can't find a relevant
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React + Tailwind CSS |
-| Backend | Python + FastAPI |
-| AI / RAG | LangChain, OpenAI `text-embedding-3-small` |
-| Vector store | FAISS |
-| LLM | Claude API or OpenAI GPT-4o |
-| Integrations | Slack Web API, GitHub REST API (mocked for the hackathon) |
-| Deploy | Vercel (frontend) |
+| Framework | Next.js (App Router) — single full-stack app (UI + API routes) |
+| Language | TypeScript |
+| Styling | Tailwind CSS (semantic theme tokens, light/dark) |
+| Database | Supabase (Postgres + pgvector) |
+| AI / RAG | Google Gemini (LLM + embeddings), retrieval over pgvector |
+| Integrations | GitHub App, Slack App (mock data for early dev) |
+| Deploy | Vercel (one deployment) |
 
 ---
 
@@ -83,26 +85,26 @@ The model **only answers from retrieved documents**. If it can't find a relevant
 
 ```
 heap-onboardly/
-├── backend/
-│   ├── main.py              # FastAPI app + routes
-│   ├── rag/
-│   │   ├── ingest.py        # load + chunk + embed docs into FAISS
-│   │   ├── retriever.py     # similarity search
-│   │   └── chat.py          # RAG chat chain + source citation
-│   ├── plan/
-│   │   └── generator.py     # structured-output plan generation
-│   ├── data/
-│   │   ├── mock_github/     # *.md files simulating GitHub docs
-│   │   └── mock_slack/      # org chart + channel FAQs
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── pages/           # Wizard, Plan+Checklist, Chat, HR Dashboard
-│   │   ├── components/
-│   │   └── lib/api.ts       # backend client
-│   ├── package.json
-│   └── .env.example
+├── src/
+│   ├── app/
+│   │   ├── (public)/page.tsx          # landing / welcome
+│   │   ├── (auth)/                    # authenticated pages
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── projects/…             # list, [projectId], course, chat, admin
+│   │   │   └── integrations/page.tsx
+│   │   └── api/                       # projects, github/sync, slack/sync,
+│   │       └── …                      # documents/upload, knowledge/generate, chat, course/generate
+│   ├── components/
+│   │   ├── layout/                    # AppShell, headers, Sidebar
+│   │   └── ui/                        # Button, Card, Badge, Input, EmptyState
+│   ├── lib/
+│   │   ├── supabase/{client,server}.ts
+│   │   ├── ai/gemini.ts
+│   │   ├── github/ · slack/ · documents/ · rag/ · course/
+│   ├── types/                         # database, project, course, chat, integrations
+│   └── data/mock/                     # projects, course, chat, knowledge
+├── .env.example
+├── package.json
 └── README.md
 ```
 
@@ -112,102 +114,77 @@ heap-onboardly/
 
 ### Prerequisites
 
-- Python 3.10+
 - Node.js 18+
-- An LLM API key (Anthropic **or** OpenAI) and an OpenAI key for embeddings
+- A Gemini API key (for the LLM + embeddings)
+- A Supabase project (URL + keys) — optional for the initial structure scaffold, which renders without real credentials
 
-### 1. Backend
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-cp .env.example .env             # then fill in your keys (see below)
-
-# Build the vector index from mock docs (one-time)
-python -m rag.ingest
-
-# Run the API
-uvicorn main:app --reload --port 8000
-```
-
-The API is now at `http://localhost:8000` (interactive docs at `http://localhost:8000/docs`).
-
-### 2. Frontend
+### Run the app
 
 ```bash
-cd frontend
 npm install
-cp .env.example .env             # set VITE_API_URL=http://localhost:8000
+cp .env.example .env.local        # then fill in your keys (see below)
 npm run dev
 ```
 
-The app is now at `http://localhost:5173`.
+The app is now at `http://localhost:3000`.
 
 ### Environment Variables
 
-**`backend/.env`**
+Copy `.env.example` to `.env.local` and fill in:
 
 ```env
-# Use one LLM provider
-ANTHROPIC_API_KEY=sk-ant-...
-# or
-OPENAI_API_KEY=sk-...
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-# Required for embeddings
-OPENAI_API_KEY=sk-...
+# Gemini
+GEMINI_API_KEY=
 
-# Optional — only needed to pull from real Slack/GitHub instead of mock data
-USE_MOCK=true
-SLACK_BOT_TOKEN=xoxb-...
-GITHUB_TOKEN=ghp_...
+# GitHub Integration
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_WEBHOOK_SECRET=
+
+# Slack Integration
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
+SLACK_SIGNING_SECRET=
+SLACK_BOT_TOKEN=
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-**`frontend/.env`**
-
-```env
-VITE_API_URL=http://localhost:8000
-```
-
-> ⚠️ Never commit real API keys. `.env` is gitignored; only `.env.example` is tracked.
+> ⚠️ Never commit real API keys. `.env.local` is gitignored; only `.env.example` is tracked.
 
 ---
 
 ## API Endpoints
 
+API routes live under `src/app/api/*`. The initial scaffold ships these as placeholders (simple JSON responses) to be filled in as features land:
+
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/plan` | Generate a structured onboarding plan from `{ role, department }`. |
-| `POST` | `/api/chat` | RAG answer to a question, with cited sources and session context. |
-| `GET` | `/api/org-chart` | Org structure / contacts derived from Slack data. |
-| `GET` | `/api/progress` | Checklist completion status for a user. |
-| `POST` | `/api/progress` | Update task done/undone state. |
-| `GET` | `/api/hr/overview` | (Stretch) Aggregated onboarding status across new hires. |
-| `GET` | `/api/hr/faq-summary` | (Stretch) Summary of most-asked questions + doc gaps. |
+| `POST` | `/api/projects` | Create or list projects. |
+| `POST` | `/api/github/sync` | Sync a GitHub repo into the knowledge base. |
+| `POST` | `/api/slack/sync` | Sync a Slack workspace into the knowledge base. |
+| `POST` | `/api/documents/upload` | Upload + extract text from manual documents. |
+| `POST` | `/api/knowledge/generate` | Chunk, embed, and store the project knowledge base. |
+| `POST` | `/api/chat` | RAG answer to a question, with cited sources. |
+| `POST` | `/api/course/generate` | Generate an onboarding course (modules, lessons, checklist, quiz). |
 
-**Example — generate a plan:**
+**Example — placeholder call:**
 
 ```bash
-curl -X POST http://localhost:8000/api/plan \
-  -H "Content-Type: application/json" \
-  -d '{"role": "Backend Developer", "department": "Engineering"}'
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" -d '{}'
 ```
 
 ```json
-{
-  "days": [
-    {
-      "day": 1,
-      "title": "Environment setup",
-      "tasks": [
-        { "id": "t1", "text": "Clone the main repo", "done": false },
-        { "id": "t2", "text": "Install dependencies", "done": false }
-      ]
-    }
-  ]
-}
+{ "message": "Project API placeholder" }
 ```
 
 ---

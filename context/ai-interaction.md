@@ -19,7 +19,7 @@ This is the common workflow that we will use for every single feature/fix:
 1. **Document** - Document the feature in @context/current-feature.md.
 2. **Branch** - Create new branch for feature, fix, etc (off `development`)
 3. **Implement** - Implement the feature/fix that I create in @context/current-feature.md
-4. **Test** - Verify it works in the browser. Implement unit testing later. Run the build/lint check (frontend: `npm run build` in `frontend/`; backend: app imports cleanly and `uvicorn main:app` starts) and fix any errors
+4. **Test** - Verify it works in the browser. Implement unit testing later. Run the build/lint check (`npm run lint` and `npm run build` from the project root) and fix any errors
 5. **Iterate** - Iterate and change things if needed
 6. **Commit** - Only after build passes and everything works
 7. **Merge** - Merge to `development` (`main` is the release branch — `development` → `main` only at the end)
