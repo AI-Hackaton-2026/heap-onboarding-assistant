@@ -1,12 +1,48 @@
-# Current Feature
+# Current Feature: AI Chat (RAG Pipeline)
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
+- `POST /api/chat` accepts `{ message, projectId, chatId? }`, creates a new chat session when `chatId` is absent, returns `{ answer, citations, chatId }`
+- User identity validated via Supabase server session; reject 401 if unauthenticated
+- Embed user question via Gemini `text-embedding-004` (768 dims)
+- pgvector similarity search scoped by `projectId` — returns top-5 chunks with `source_label` as citation label
+- Graceful empty-KB response when no embeddings exist for the project
+- Gemini 2.5 Flash receives: system prompt + retrieved chunks + last 10 DB messages + new question
+- Both turns (user + assistant) written to `chat_messages` in a single Prisma transaction
+- Citations stored as `Json` on assistant message row and echoed in API response
+- `chat/page.tsx` becomes a live client component: local `messages` state, text input, Send button, citation badges under assistant bubbles
+- Loading state: disabled input + "..." typing bubble while awaiting API
+- Graceful inline error in chat thread on non-200 response (no error boundary throw)
+
 ## Notes
+
+**Files to create:**
+- `onboardly/src/app/api/chat/route.ts` — full RAG handler (replaces placeholder)
+- `onboardly/src/lib/rag/embeddings.ts` — `embedQuery(text)` + `embedChunks(texts[])` via Gemini SDK
+- `onboardly/src/lib/rag/search.ts` — `searchKnowledge(query, projectId, topK)` via raw SQL pgvector
+
+**Files to modify:**
+- `onboardly/src/app/(auth)/projects/[projectId]/chat/page.tsx` — replace static mock with live client component
+
+**Key gotchas:**
+- `@google/genai` v2 embedding result shape: `result.embeddings[0].values`
+- pgvector raw SQL via `prisma.$queryRaw` with `<=>` operator; vector must be Postgres literal string `[0.1,0.2,...]`
+- No RLS — every query must be scoped by `projectId` manually
+- Fetch last 10 messages max to keep prompt under token limits
+- Gemini is stateless — manually build `contents` array from DB history
+- Write both chat message rows in one `prisma.$transaction([...])` call
+- `ChatRole` enum: DB uses `USER`/`ASSISTANT` (uppercase); TS types use `"user"`/`"assistant"` (lowercase) — map at API boundary
+
+**References:**
+- `onboardly/src/lib/ai/gemini.ts` — `getGemini()` client + model constants
+- `onboardly/src/types/chat.ts` — `ChatMessage`, `Citation`, `Chat` types
+- `onboardly/prisma/schema.prisma` — `Chat`, `ChatMessage`, `Embedding` table shapes
+- `onboardly/src/lib/supabase/server.ts` — server-side Supabase client
+- `onboardly/src/lib/db/prisma.ts` — Prisma singleton
 
 ## History
 
