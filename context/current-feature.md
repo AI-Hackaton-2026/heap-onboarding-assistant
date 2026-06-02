@@ -6,13 +6,23 @@ Not Started
 
 ## Goals
 
-<!-- Bullet points of what success looks like (populated by `/feature load`) -->
-
 ## Notes
 
-<!-- Additional context, constraints, or details from the spec -->
-
 ## History
+
+### Backend Foundation — Database (Prisma + Supabase) & Auth (Phase 1)
+
+First "real backend" pass after the UI/theming work: a working Prisma data layer wired to Supabase Postgres, and end-to-end Supabase authentication. The GitHub App for codebase analysis was created and its credentials wired/verified (the actual repo install + sync UI is deferred to Phase 3).
+
+- **Data-layer split (decided):** Prisma owns schema + migrations + typed CRUD (connects as `postgres`, **bypasses RLS** → tenant isolation enforced in app logic); Supabase keeps **Auth**, **Storage**, and **pgvector**. Vector similarity search will use raw SQL (`<=>`), not the Prisma query builder.
+- **Prisma 7 setup:** `prisma`, `@prisma/client`, `@prisma/adapter-pg`, `pg`. Used the v7 conventions — `prisma-client` generator → `src/generated/prisma` (git-ignored), connection URLs in `prisma.config.ts` (not `schema.prisma`), `postgresqlExtensions` preview. The config's `datasource.url` = `DIRECT_URL` (session pooler, port 5432, for migrate); runtime uses the pg driver adapter with the pooled `DATABASE_URL` (port 6543, `?pgbouncer=true`).
+- **Schema (`prisma/schema.prisma`):** all 12 tables — `organizations`, `projects`, `documents`, `embeddings`, `courses`, `modules`, `lessons`, `checklist_items`, `quizzes`, `chats`, `chat_messages`, `integrations` — with enums, cascade FKs, `@@map` snake_case, and `embeddings.embedding` as `Unsupported("vector(768)")` (Gemini embed dims). Declared `vector` + the default Supabase extensions to avoid migrate drift.
+- **Applied via `prisma db push`** (no migration history yet — hackathon-friendly first sync). Verified live on Supabase: 12 tables present, **pgvector enabled**.
+- **Prisma client singleton (`src/lib/db/prisma.ts`):** pg driver adapter + dev hot-reload global guard.
+- **Auth (Phase 1):** Next 16 **`proxy.ts`** (renamed from `middleware.ts`) refreshes the Supabase session on every request and guards `/dashboard`, `/projects`, `/integrations` (redirect to `/login?redirectTo=…`); `(auth)/layout.tsx` adds a server-side `getUser()` guard. `/login` (server) renders a client `LoginForm` — GitHub OAuth + email/password sign-in & sign-up via server actions (`src/lib/auth/actions.ts`, `useActionState` for inline errors). `/auth/callback` exchanges the OAuth code for a session. `AuthHeader` now reads the real user and renders `UserMenu` (email + avatar + sign-out). Landing/`PublicHeader` CTAs point to `/login`.
+- **GitHub App (Phase-3 prep):** "Onboardly Code Analyzer" created (read-only Metadata/Contents/PRs/Issues). `src/lib/github/client.ts` upgraded from placeholder to a real App-auth helper: `createAppJwt` (RS256 via `node:crypto`) → `getInstallationToken` → `installationAuthHeaders`. Env wired (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` as single-line `\n`-escaped PEM, client id/secret). **Verified** by signing a JWT and hitting `GET /app` — GitHub authenticated it with the expected permissions. Repo install flow + sync UI intentionally deferred to Phase 3.
+- **Config:** `.env.example` documents the two Prisma URLs; `.gitignore` ignores `/src/generated`; `eslint.config.mjs` ignores `src/generated/**`; added `db:generate` / `db:migrate` / `db:push` / `db:studio` scripts. `lucide-react` dropped its GitHub brand glyph, so the login button inlines the official mark.
+- **Verified:** `next lint` + `next build` pass (0 errors). Full auth flow browser-tested via Playwright against real Supabase: unauthenticated `/dashboard` → redirect to login; email sign-up creates a user (confirmation message shown); after admin email-confirm, sign-in lands on `/dashboard` with the user's email in the header; sign-out clears the session and re-protects routes. Supabase anon + service-role keys and the Gemini key are in git-ignored `.env.local` (never committed). **Note:** the GitHub "Continue with GitHub" button needs the Supabase GitHub provider configured (OAuth app + provider enable) before it works — email/password works today.
 
 ### Global Theming
 
