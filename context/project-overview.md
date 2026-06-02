@@ -54,7 +54,7 @@ ChatMessage      { role, content, sources?: string[] }
 Source           { label, path }        # e.g. "GitHub: backend/README.md"
 Progress         { userId/session, taskId, done }
 OrgContact       { name, role, channel, topics[] }   # derived from Slack data
-DocChunk         { id, text, embedding, source }      # FAISS vector store
+DocChunk         { id, text, embedding, source }      # Supabase pgvector store
 ```
 
 ---
@@ -63,14 +63,14 @@ DocChunk         { id, text, embedding, source }      # FAISS vector store
 
 | Category | Choice |
 | -------- | ------ |
-| Framework | React (Vite) frontend · FastAPI backend |
-| Language | TypeScript (frontend) · Python 3.10+ (backend) |
-| Database | FAISS vector store (no relational DB for MVP; session-scoped state) |
-| Styling/UI | Tailwind CSS |
-| Auth | None for MVP (session-scoped) |
-| Deployment | Vercel (frontend); backend run locally / separately |
+| Framework | Next.js (App Router) — single full-stack app (UI + API routes) |
+| Language | TypeScript across the whole project |
+| Database | Supabase (Postgres + pgvector for embeddings) |
+| Styling/UI | Tailwind CSS with semantic theme tokens (light/dark) |
+| Auth | Supabase Auth (added later; not in the initial structure feature) |
+| Deployment | Vercel (one deployment for UI + API) |
 
-AI / RAG: LangChain, OpenAI `text-embedding-3-small` embeddings, FAISS retrieval, Claude API or OpenAI GPT-4o as the LLM. Integrations: Slack Web API + GitHub REST API (mocked via local Markdown under `backend/data/mock_*` behind a `USE_MOCK` flag).
+AI / RAG: Google **Gemini** as the LLM and embeddings provider, retrieval over Supabase **pgvector**. Integrations: GitHub App + Slack App (logic starts as placeholders under `src/lib/*`; early frontend work uses mock data under `src/data/mock`).
 
 ---
 
@@ -100,10 +100,10 @@ N/A — hackathon project.
 - "Who do I ask?" org-chart matching + intro-message drafting
 - HR Dashboard (completion %, top questions, bottlenecks)
 - Knowledge Gap Alert
-- Flip `USE_MOCK=false` to pull from real Slack/GitHub
+- Replace mock data with real Slack/GitHub sync once integrations are wired
 
 ---
 
 ## 📌 Status
 
-New project. Spec defined in the root `README.md`; no application code written yet. Source tree below is the intended layout (`backend/`, `frontend/`).
+New project. Being scaffolded as a single Next.js full-stack app (see `context/features/project-structure.md`). Source tree lives under `src/` (`src/app`, `src/components`, `src/lib`, `src/types`, `src/data/mock`).
