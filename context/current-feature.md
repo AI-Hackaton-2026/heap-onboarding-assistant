@@ -46,6 +46,18 @@ In Progress
 
 ## History
 
+### GitHub Login + Auto-Connect & List Repos (Phase 3 start)
+
+Finished the "Continue with GitHub" login and used it to list the user's repositories, flagging which are ingestion-ready. Resolved the two-GitHub-identities question with the **"Both"** approach: the OAuth `provider_token` powers the immediate full-repo listing, while the GitHub App installation is detected and surfaced as an "ingestion-ready" flag (App installation stays the Phase-3 ingestion path).
+
+- **OAuth scopes + token capture:** `signInWithGitHub` now requests `read:user repo read:org`. The user-scoped `provider_token` is only available right after `exchangeCodeForSession`, so `/auth/callback` captures it into a short-lived **httpOnly cookie** (`gh_provider_token`, ~1h, `secure` in prod, `sameSite=lax`); `signOut` clears it. (`src/lib/auth/actions.ts`, `src/app/auth/callback/route.ts`.)
+- **Repo listing helper (`src/lib/github/oauth.ts`):** `listUserRepos(token)` paginates `GET /user/repos` (owner + collaborator + org, sorted by recently-updated) and, in parallel, walks `GET /user/installations` → `/repositories` to build the set of App-installed repos. Each repo is mapped to a typed `GitHubRepo` with an `ingestionReady` flag. Installation lookup failures are non-fatal (listing still renders). Kept separate from the App-token helper in `client.ts`.
+- **Repos page (`/integrations/github`):** server component reads the cookie and renders the list with Private/Public + **Ingestion-ready** badges, description, language, and a per-repo **Install app** deep-link (`github.com/apps/<slug>/installations/new`). Graceful states for no-token (email user / expired) and fetch errors, both offering a reconnect path. `force-dynamic`; covered by the existing `/integrations` middleware guard.
+- **Integrations card:** the GitHub card now reflects live Connected/Not-connected state from the cookie and links to the repos page (or to GitHub login when not connected).
+- **App slug:** resolved the GitHub App's public slug (`onboardly-code-analyzer`) by querying `GET /app` with the App JWT; set `NEXT_PUBLIC_GITHUB_APP_SLUG` in `.env.local` and documented it (+ the OAuth-App/Supabase-provider setup and login scopes) in `.env.example`.
+- **External setup (done by user):** created the GitHub **OAuth App** (callback `https://nirczzsfcqknmtwdufib.supabase.co/auth/v1/callback`) and enabled the Supabase GitHub provider with its client id/secret — distinct from the GitHub App.
+- **Verified:** `next lint` + `next build` pass (0 errors). Full flow browser-tested via Playwright against real Supabase + GitHub: GitHub login → 2FA → callback → `/dashboard`; Integrations shows **Connected**; `/integrations/github` listed **43 real repos** with correct privacy/language badges and install links. No repos showed "Ingestion-ready" (expected — the App isn't installed on any yet). **Note:** `provider_token` is short-lived with no refresh, so listing falls back to a reconnect prompt after ~1h; switching listing to the App installation token would make it persistent (future).
+
 ### Landing Page Redesign
 
 Rebuilt the public landing page (`src/app/(public)/page.tsx`) as a faithful, responsive reproduction of the reference design in `context/features/screenshots/image.png` — a split hero (messaging left, product-preview cards right) on the existing shadcn/ui + Tailwind v4 token layer, in the Symphony blue palette. Spec evolved mid-build: an initial "remove badge / remove stats / no-scroll" brief was reversed to "make it identical to the screenshot + responsive," then refined with detailed decoration feedback.
