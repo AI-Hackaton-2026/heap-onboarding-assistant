@@ -73,10 +73,12 @@ The model **only answers from retrieved documents**. If it can't find a relevant
 | --- | --- |
 | Framework | Next.js (App Router) — single full-stack app (UI + API routes) |
 | Language | TypeScript |
-| Styling | Tailwind CSS (semantic theme tokens, light/dark) |
+| Styling / UI | Tailwind CSS + shadcn/ui (semantic theme tokens, light/dark) |
 | Database | Supabase (Postgres + pgvector) |
-| AI / RAG | Google Gemini (LLM + embeddings), retrieval over pgvector |
+| Auth / Storage | Supabase Auth (GitHub + Email), Supabase Storage |
+| AI / RAG | Google Gemini 2.5 (LLM) + Gemini Embeddings, retrieval over pgvector |
 | Integrations | GitHub App, Slack App (mock data for early dev) |
+| Tooling | ESLint, Prettier |
 | Deploy | Vercel (one deployment) |
 
 ---
@@ -84,28 +86,30 @@ The model **only answers from retrieved documents**. If it can't find a relevant
 ## Project Structure
 
 ```
-heap-onboardly/
-├── src/
-│   ├── app/
-│   │   ├── (public)/page.tsx          # landing / welcome
-│   │   ├── (auth)/                    # authenticated pages
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── projects/…             # list, [projectId], course, chat, admin
-│   │   │   └── integrations/page.tsx
-│   │   └── api/                       # projects, github/sync, slack/sync,
-│   │       └── …                      # documents/upload, knowledge/generate, chat, course/generate
-│   ├── components/
-│   │   ├── layout/                    # AppShell, headers, Sidebar
-│   │   └── ui/                        # Button, Card, Badge, Input, EmptyState
-│   ├── lib/
-│   │   ├── supabase/{client,server}.ts
-│   │   ├── ai/gemini.ts
-│   │   ├── github/ · slack/ · documents/ · rag/ · course/
-│   ├── types/                         # database, project, course, chat, integrations
-│   └── data/mock/                     # projects, course, chat, knowledge
-├── .env.example
-├── package.json
-└── README.md
+heap-onboarding-assistant/        # repo root (project meta)
+├── context/                      # specs, roadmap, workflow docs
+├── README.md                     # this file
+└── onboardly/                    # the Next.js app — run npm commands here
+    ├── src/
+    │   ├── app/
+    │   │   ├── (public)/page.tsx          # landing / welcome
+    │   │   ├── (auth)/                    # authenticated pages
+    │   │   │   ├── dashboard/page.tsx
+    │   │   │   ├── projects/…             # list, [projectId], course, chat, admin
+    │   │   │   └── integrations/page.tsx
+    │   │   └── api/                       # projects, github/sync, slack/sync,
+    │   │       └── …                      # documents/upload, knowledge/generate, chat, course/generate
+    │   ├── components/
+    │   │   ├── layout/                    # AppShell, headers, Sidebar
+    │   │   └── ui/                        # shadcn/ui primitives + EmptyState
+    │   ├── lib/
+    │   │   ├── supabase/{client,server}.ts
+    │   │   ├── ai/gemini.ts
+    │   │   ├── github/ · slack/ · documents/ · rag/ · course/
+    │   ├── types/                         # database, project, course, chat, integrations
+    │   └── data/mock/                     # projects, course, chat, knowledge
+    ├── .env.example
+    └── package.json
 ```
 
 ---
@@ -120,7 +124,10 @@ heap-onboardly/
 
 ### Run the app
 
+The app lives in the `onboardly/` subfolder — run commands from there:
+
 ```bash
+cd onboardly
 npm install
 cp .env.example .env.local        # then fill in your keys (see below)
 npm run dev

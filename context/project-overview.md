@@ -23,14 +23,17 @@ New employees need a lot of information in their first weeks, and finding the ri
 
 ## ✨ Core Features
 
-- **Onboarding Plan Generator** (MUST) — role + department → structured plan (Day 1 / Week 1 / Weeks 2–4) as typed JSON.
-- **RAG Chat Assistant** (MUST) — retrieves relevant chunks and answers with a cited source (e.g. `[GitHub: backend/README.md]`); says "I couldn't find this" rather than guessing.
-- **Progress Checklist** (MUST) — plan items become an interactive checklist with a live progress bar, persisted per session.
-- **Guided Conversational Flow** (MUST) — proactively suggests the next logical step from the plan.
-- **Context Memory** (MUST) — remembers the user's role and progress across the session.
-- **"Who do I ask?"** (SHOULD) — matches a question to the right person from the Slack org chart; can draft an intro message.
-- **HR Dashboard** (STRETCH) — completion %, most-asked questions, bottleneck topics.
-- **Knowledge Gap Alert** (STRETCH) — logs unanswerable questions so HR knows which docs are missing.
+- **Project & Org Management** (MUST) — admins create organizations and projects (name, description, GitHub repo, Slack workspace, status).
+- **Knowledge Ingestion** (MUST) — connect GitHub + Slack and upload docs (PDF/MD/DOCX/TXT) → parse → chunk → embed into pgvector, with a unified knowledge base + citations.
+- **Course Generator** (MUST) — free-text role → AI-generated course: modules, lessons, checklists, quizzes, estimated duration; admin-editable.
+- **Course UI** (MUST) — Anthropic-Academy-style sidebar (modules + progress), lesson page (content, checklist, quiz), progress tracking.
+- **RAG Chat Assistant** (MUST) — retrieves relevant chunks and answers with a cited source (file / doc / Slack); says "I couldn't find this" rather than guessing.
+- **Ownership Detection** (SHOULD) — analyzes commits/PRs/discussions to surface feature owners + most active contributors ("who do I ask?").
+- **AI Message Generation** (SHOULD) — drafts a professional intro/question message to the right owner, with citations.
+- **Admin Dashboard** (SHOULD) — knowledge-base status (GitHub/Slack/embedding/course gen) + resync/rebuild controls.
+- **Knowledge Graph** (STRETCH) — systems/components/relationships derived from the repo + docs.
+
+See `context/roadmap.md` for the full phased breakdown of each feature.
 
 ---
 
@@ -57,6 +60,27 @@ OrgContact       { name, role, channel, topics[] }   # derived from Slack data
 DocChunk         { id, text, embedding, source }      # Supabase pgvector store
 ```
 
+### Database Schema (Supabase Postgres)
+
+Full table set (see `context/roadmap.md` Phase 1):
+
+```
+organizations        # tenant / company
+projects             # name, description, github_repo, slack_workspace, status
+documents            # uploaded + synced source docs (original + parsed text)
+embeddings           # pgvector chunks with source citation
+courses              # generated onboarding course per role
+modules              # course → modules
+lessons              # module → lessons (content)
+checklist_items      # lesson checklists
+quizzes              # lesson quizzes / questions
+chats                # chat sessions
+chat_messages        # role, content, citations
+integrations         # GitHub App + Slack App connection state
+```
+
+RLS: organizations can only access their own projects. Storage buckets: `docs`, `uploads`.
+
 ---
 
 ## 🧱 Tech Stack
@@ -66,11 +90,15 @@ DocChunk         { id, text, embedding, source }      # Supabase pgvector store
 | Framework | Next.js (App Router) — single full-stack app (UI + API routes) |
 | Language | TypeScript across the whole project |
 | Database | Supabase (Postgres + pgvector for embeddings) |
-| Styling/UI | Tailwind CSS with semantic theme tokens (light/dark) |
-| Auth | Supabase Auth (added later; not in the initial structure feature) |
+| Styling/UI | Tailwind CSS + **shadcn/ui** (semantic theme tokens, light/dark) |
+| Auth | Supabase Auth — GitHub + Email login, protected routes (Phase 1) |
+| Storage | Supabase Storage (buckets: `docs`, `uploads`) |
+| Tooling | ESLint + Prettier |
 | Deployment | Vercel (one deployment for UI + API) |
 
-AI / RAG: Google **Gemini** as the LLM and embeddings provider, retrieval over Supabase **pgvector**. Integrations: GitHub App + Slack App (logic starts as placeholders under `src/lib/*`; early frontend work uses mock data under `src/data/mock`).
+AI / RAG: Google **Gemini 2.5** as the LLM and **Gemini Embeddings** for vectors, retrieval over Supabase **pgvector**. Integrations: GitHub App + Slack App (logic starts as placeholders under `src/lib/*`; early frontend work uses mock data under `src/data/mock`).
+
+> The full 13-phase build plan, ingestion architecture, and per-phase tasks live in **`context/roadmap.md`** (authoritative).
 
 ---
 
@@ -90,17 +118,26 @@ N/A — hackathon project.
 
 ## 🧭 Roadmap
 
-### MVP
-- Plan generator (structured JSON output)
-- RAG chat with cited sources over mock GitHub/Slack docs
-- Progress checklist with persistence
-- Guided conversational flow + session context memory
+Summarized below; the authoritative 13-phase plan is in `context/roadmap.md`.
+
+### Foundation
+- Project setup (Next.js, Tailwind, shadcn/ui, ESLint, Prettier), Supabase (Auth, Storage, pgvector), DB schema
+- Org + project management
+
+### Ingestion & Knowledge
+- GitHub integration (App, repo sync, repo map/summaries)
+- Documentation upload + parsing + chunking
+- Slack integration (workspace sync, summaries)
+- Embeddings + similarity search → unified knowledge base with citations
+
+### Product Surfaces
+- Course generator + course UI (modules, lessons, checklists, quizzes, progress)
+- RAG chat assistant with citations
 
 ### Later
-- "Who do I ask?" org-chart matching + intro-message drafting
-- HR Dashboard (completion %, top questions, bottlenecks)
-- Knowledge Gap Alert
-- Replace mock data with real Slack/GitHub sync once integrations are wired
+- Ownership detection + AI message generation
+- Admin dashboard (sync status + resync/rebuild controls)
+- Knowledge graph
 
 ---
 
