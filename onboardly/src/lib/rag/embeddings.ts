@@ -1,4 +1,4 @@
-// Embedding generation via Gemini text-embedding-004 (768 dims).
+// Embedding generation via gemini-embedding-001 truncated to 768 dims.
 
 import { getGemini, GEMINI_EMBEDDING_MODEL } from "@/lib/ai/gemini";
 
@@ -8,6 +8,7 @@ export async function embedQuery(text: string): Promise<number[]> {
   const result = await ai.models.embedContent({
     model: GEMINI_EMBEDDING_MODEL,
     contents: text,
+    config: { outputDimensionality: 768 },
   });
   const values = result.embeddings?.[0]?.values;
   if (!values) throw new Error("Gemini embedContent returned no values");
@@ -20,6 +21,7 @@ export async function embedChunks(chunks: string[]): Promise<number[][]> {
   const result = await ai.models.embedContent({
     model: GEMINI_EMBEDDING_MODEL,
     contents: chunks,
+    config: { outputDimensionality: 768 },
   });
   const embeddings = result.embeddings;
   if (!embeddings || embeddings.length !== chunks.length) {

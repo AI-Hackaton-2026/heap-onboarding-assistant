@@ -14,15 +14,12 @@ interface Message {
   isError?: boolean;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export default function ChatPage({
   params,
 }: {
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = use(params);
-  const isMockProject = !UUID_RE.test(projectId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -101,17 +98,12 @@ export default function ChatPage({
 
       {/* Message list */}
       <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
-        {isMockProject ? (
-          <p className="text-muted-foreground text-sm">
-            This is a demo project. Create a real project to use the chat
-            feature.
-          </p>
-        ) : messages.length === 0 ? (
+        {messages.length === 0 && (
           <p className="text-muted-foreground text-sm">
             Ask a question about your project — answers are grounded in your
             connected knowledge base.
           </p>
-        ) : null}
+        )}
 
         {messages.map((msg) => (
           <div
@@ -163,13 +155,13 @@ export default function ChatPage({
       {/* Composer */}
       <form onSubmit={sendMessage} className="mt-4 flex gap-2">
         <Input
-          placeholder={isMockProject ? "Create a real project to chat…" : "Ask about your project…"}
+          placeholder="Ask about your project…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={loading || isMockProject}
+          disabled={loading}
           autoFocus
         />
-        <Button type="submit" disabled={loading || isMockProject || !input.trim()}>
+        <Button type="submit" disabled={loading || !input.trim()}>
           Send
         </Button>
       </form>
