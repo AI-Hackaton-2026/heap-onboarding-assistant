@@ -7,7 +7,8 @@ import { CoursePlayer } from "@/components/course/CoursePlayer";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { loadCourseFromDb } from "@/lib/course/db";
-import { Provider } from "@/generated/prisma/enums";
+import { getProjectAccess } from "@/lib/members/access";
+import { ProjectRole, Provider } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,16 @@ export default async function CoursePage({
 }) {
   const { projectId } = await params;
 
-  const [githubConn, initialCourse] = await Promise.all([
+  const [githubConn, initialCourse, access] = await Promise.all([
     prisma.projectConnection.findUnique({
       where: { projectId_provider: { projectId, provider: Provider.GITHUB } },
       select: { externalRef: true },
     }),
     loadCourseFromDb(projectId),
+    getProjectAccess(projectId),
   ]);
+
+  const isAdmin = access?.role === ProjectRole.ADMIN;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -38,6 +42,7 @@ export default async function CoursePage({
         projectId={projectId}
         initialRepo={githubConn?.externalRef ?? undefined}
         initialCourse={initialCourse ?? undefined}
+        isAdmin={isAdmin}
       />
     </div>
   );

@@ -2,24 +2,60 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { Course, Lesson } from "@/types/course";
+import type { Course, Lesson, Module } from "@/types/course";
 import {
   AlertCircle,
   CheckCircle2,
   Circle,
   ChevronRight,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   Loader2,
   Sparkles,
   BookOpen,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Markdown } from "@/components/ui/Markdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
+
+// ── Edit helpers ──────────────────────────────────────────────────────────────
+
+function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length) return items;
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
+function newLesson(): Lesson {
+  return {
+    id: crypto.randomUUID(),
+    title: "New lesson",
+    content: "",
+    checklist: [],
+    quiz: [],
+  };
+}
+
+function newModule(): Module {
+  return {
+    id: crypto.randomUUID(),
+    title: "New module",
+    description: "",
+    lessons: [newLesson()],
+  };
+}
 
 // ── Generate Form ─────────────────────────────────────────────────────────────
 
@@ -417,12 +453,379 @@ function LessonView({
   );
 }
 
+// ── Course Editor (admin-only) ──────────────────────────────────────────────────
+
+interface CourseEditorProps {
+  course: Course;
+  saving: boolean;
+  error: string | null;
+  onSave: (next: Course) => void;
+  onCancel: () => void;
+}
+
+function CourseEditor({ course, saving, error, onSave, onCancel }: CourseEditorProps) {
+  const [draft, setDraft] = useState<Course>(course);
+
+  const updateModule = (mi: number, patch: Partial<Module>) =>
+    setDraft((d) => ({
+      ...d,
+      modules: d.modules.map((m, i) => (i === mi ? { ...m, ...patch } : m)),
+    }));
+
+  const updateLesson = (mi: number, li: number, patch: Partial<Lesson>) =>
+    setDraft((d) => ({
+      ...d,
+      modules: d.modules.map((m, i) =>
+        i === mi
+          ? { ...m, lessons: m.lessons.map((l, j) => (j === li ? { ...l, ...patch } : l)) }
+          : m,
+      ),
+    }));
+
+  const moveModule = (mi: number, dir: -1 | 1) =>
+    setDraft((d) => ({ ...d, modules: moveItem(d.modules, mi, mi + dir) }));
+
+  const deleteModule = (mi: number) =>
+    setDraft((d) => ({ ...d, modules: d.modules.filter((_, i) => i !== mi) }));
+
+  const addModule = () =>
+    setDraft((d) => ({ ...d, modules: [...d.modules, newModule()] }));
+
+  const moveLesson = (mi: number, li: number, dir: -1 | 1) =>
+    updateModule(mi, { lessons: moveItem(draft.modules[mi].lessons, li, li + dir) });
+
+  const deleteLesson = (mi: number, li: number) =>
+    updateModule(mi, { lessons: draft.modules[mi].lessons.filter((_, j) => j !== li) });
+
+  const addLesson = (mi: number) =>
+    updateModule(mi, { lessons: [...draft.modules[mi].lessons, newLesson()] });
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="border-border bg-background/95 sticky top-0 z-10 -mx-4 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <h1 className="font-heading text-xl font-semibold">Edit course</h1>
+          <p className="text-muted-foreground text-sm">
+            Changes are saved for everyone on this project.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={() => onSave(draft)} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Save changes"
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {error && <p className="text-destructive text-sm">{error}</p>}
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="course-role">
+          Role
+        </label>
+        <Input
+          id="course-role"
+          value={draft.roleName}
+          onChange={(e) => setDraft((d) => ({ ...d, roleName: e.target.value }))}
+        />
+      </div>
+
+      {draft.modules.map((module, mi) => (
+        <Card key={module.id} className="shadow-sm">
+          <CardContent className="space-y-4 py-4">
+            <div className="flex items-start gap-2">
+              <Input
+                aria-label="Module title"
+                value={module.title}
+                onChange={(e) => updateModule(mi, { title: e.target.value })}
+                className="font-medium"
+              />
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Move module up"
+                  disabled={mi === 0}
+                  onClick={() => moveModule(mi, -1)}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Move module down"
+                  disabled={mi === draft.modules.length - 1}
+                  onClick={() => moveModule(mi, 1)}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete module"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteModule(mi)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 sm:pl-3">
+              {module.lessons.map((lesson, li) => (
+                <div
+                  key={lesson.id}
+                  className="border-border bg-muted/20 space-y-3 rounded-lg border p-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <Input
+                      aria-label="Lesson title"
+                      value={lesson.title}
+                      onChange={(e) => updateLesson(mi, li, { title: e.target.value })}
+                    />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Move lesson up"
+                        disabled={li === 0}
+                        onClick={() => moveLesson(mi, li, -1)}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Move lesson down"
+                        disabled={li === module.lessons.length - 1}
+                        onClick={() => moveLesson(mi, li, 1)}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete lesson"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteLesson(mi, li)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-muted-foreground text-xs font-medium">
+                      Content (Markdown)
+                    </label>
+                    <Textarea
+                      value={lesson.content}
+                      onChange={(e) => updateLesson(mi, li, { content: e.target.value })}
+                      rows={5}
+                    />
+                  </div>
+
+                  <LessonChecklistEditor
+                    lesson={lesson}
+                    onChange={(checklist) => updateLesson(mi, li, { checklist })}
+                  />
+                  <LessonQuizEditor
+                    lesson={lesson}
+                    onChange={(quiz) => updateLesson(mi, li, { quiz })}
+                  />
+                </div>
+              ))}
+
+              <Button variant="outline" size="sm" onClick={() => addLesson(mi)}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add lesson
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      <Button variant="outline" onClick={addModule}>
+        <Plus className="mr-1 h-4 w-4" />
+        Add module
+      </Button>
+    </div>
+  );
+}
+
+function LessonChecklistEditor({
+  lesson,
+  onChange,
+}: {
+  lesson: Lesson;
+  onChange: (checklist: Lesson["checklist"]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-muted-foreground text-xs font-medium">Checklist</label>
+      {lesson.checklist.map((item, ci) => (
+        <div key={item.id} className="flex items-center gap-2">
+          <Input
+            aria-label="Checklist item"
+            value={item.text}
+            onChange={(e) =>
+              onChange(
+                lesson.checklist.map((c, i) =>
+                  i === ci ? { ...c, text: e.target.value } : c,
+                ),
+              )
+            }
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Remove checklist item"
+            className="text-muted-foreground hover:text-destructive shrink-0"
+            onClick={() => onChange(lesson.checklist.filter((_, i) => i !== ci))}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() =>
+          onChange([
+            ...lesson.checklist,
+            { id: crypto.randomUUID(), text: "", done: false },
+          ])
+        }
+      >
+        <Plus className="mr-1 h-4 w-4" />
+        Add checklist item
+      </Button>
+    </div>
+  );
+}
+
+function LessonQuizEditor({
+  lesson,
+  onChange,
+}: {
+  lesson: Lesson;
+  onChange: (quiz: Lesson["quiz"]) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <label className="text-muted-foreground text-xs font-medium">Quiz</label>
+      {lesson.quiz.map((q, qi) => {
+        const patchQuestion = (patch: Partial<(typeof lesson.quiz)[number]>) =>
+          onChange(lesson.quiz.map((x, i) => (i === qi ? { ...x, ...patch } : x)));
+        return (
+          <div key={q.id} className="border-border space-y-2 rounded-md border p-2.5">
+            <div className="flex items-start gap-2">
+              <Input
+                aria-label="Quiz question"
+                value={q.question}
+                onChange={(e) => patchQuestion({ question: e.target.value })}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove quiz question"
+                className="text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => onChange(lesson.quiz.filter((_, i) => i !== qi))}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              {q.options.map((opt, oi) => (
+                <label key={oi} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`correct-${q.id}`}
+                    checked={q.correctIndex === oi}
+                    onChange={() => patchQuestion({ correctIndex: oi })}
+                    aria-label={`Mark option ${oi + 1} correct`}
+                    className="accent-primary h-4 w-4 shrink-0 cursor-pointer"
+                  />
+                  <Input
+                    aria-label={`Option ${oi + 1}`}
+                    value={opt}
+                    onChange={(e) =>
+                      patchQuestion({
+                        options: q.options.map((o, i) => (i === oi ? e.target.value : o)),
+                      })
+                    }
+                  />
+                  {q.options.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove option ${oi + 1}`}
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() =>
+                        patchQuestion({
+                          options: q.options.filter((_, i) => i !== oi),
+                          correctIndex:
+                            q.correctIndex > oi
+                              ? q.correctIndex - 1
+                              : Math.min(q.correctIndex, q.options.length - 2),
+                        })
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </label>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => patchQuestion({ options: [...q.options, ""] })}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add option
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() =>
+          onChange([
+            ...lesson.quiz,
+            {
+              id: crypto.randomUUID(),
+              question: "",
+              options: ["", ""],
+              correctIndex: 0,
+            },
+          ])
+        }
+      >
+        <Plus className="mr-1 h-4 w-4" />
+        Add question
+      </Button>
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 interface CoursePlayerProps {
   projectId: string;
   initialRepo?: string;
   initialCourse?: Course;
+  isAdmin?: boolean;
 }
 
 const COURSE_STORAGE_KEY = (projectId: string) => `onboardly-course-${projectId}`;
@@ -446,13 +849,21 @@ function loadProgressFromStorage(courseId: string): Set<string> {
   }
 }
 
-export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePlayerProps) {
+export function CoursePlayer({
+  projectId,
+  initialRepo,
+  initialCourse,
+  isAdmin = false,
+}: CoursePlayerProps) {
   const router = useRouter();
   const [course, setCourse] = useState<Course | null>(() => {
     if (initialCourse) return initialCourse;
     if (typeof window !== "undefined") return loadCourseFromStorage(projectId);
     return null;
   });
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [currentModuleIdx, setCurrentModuleIdx] = useState(0);
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(() => {
@@ -580,6 +991,34 @@ export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePl
     setCourse(newCourse);
   }, []);
 
+  const handleSaveEdits = useCallback(
+    async (next: Course) => {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const res = await fetch(`/api/course/${projectId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(next),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data.error ?? "Save failed");
+        }
+        setCourse(next);
+        setEditing(false);
+        // Keep the viewer in bounds if modules/lessons were removed.
+        setCurrentModuleIdx(0);
+        setCurrentLessonIdx(0);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Save failed");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [projectId],
+  );
+
   if (!course) {
     return (
       <GenerateForm
@@ -587,6 +1026,26 @@ export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePl
         initialRepo={initialRepo}
         onCourseReady={handleCourseReady}
       />
+    );
+  }
+
+  if (editing) {
+    return (
+      <div
+        className="-mx-4 -my-5 overflow-y-auto px-4 py-6 sm:-mx-6 sm:-my-6 sm:px-6 md:px-10 md:py-8"
+        style={{ height: "calc(100dvh - 4rem)" }}
+      >
+        <CourseEditor
+          course={course}
+          saving={saving}
+          error={saveError}
+          onSave={handleSaveEdits}
+          onCancel={() => {
+            setEditing(false);
+            setSaveError(null);
+          }}
+        />
+      </div>
     );
   }
 
@@ -642,12 +1101,26 @@ export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePl
             <span className="text-muted-foreground text-xs">
               {currentFlatIdx + 1} / {allLessons.length}
             </span>
-            <button
-              onClick={resetCourse}
-              className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
-            >
-              Regenerate
-            </button>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setSaveError(null);
+                    setEditing(true);
+                  }}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] underline-offset-2 hover:underline"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={resetCourse}
+                className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
+              >
+                Regenerate
+              </button>
+            </div>
           </div>
 
           <Button size="sm" onClick={goNext}>
