@@ -265,11 +265,23 @@ export async function updateProject(
   redirect(`/projects/${existing.id}`);
 }
 
-export async function deleteProject(formData: FormData): Promise<void> {
+export async function deleteProject(
+  formData: FormData,
+): Promise<{ ok: boolean; error?: string }> {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const access = projectId ? await requireProjectAdmin(projectId) : null;
-  if (!access) return;
+  if (!access) {
+    return { ok: false, error: "Only project admins can delete this project." };
+  }
 
-  await prisma.project.delete({ where: { id: access.project.id } });
+  try {
+    await prisma.project.delete({ where: { id: access.project.id } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Delete failed.";
+    console.error("[deleteProject]", message);
+    return { ok: false, error: "Could not delete the project. Try again." };
+  }
+
   revalidatePath("/projects");
+  return { ok: true };
 }

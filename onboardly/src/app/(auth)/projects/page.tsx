@@ -12,7 +12,12 @@ import { FolderKanban, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const projects = await listAccessibleProjects();
 
   return (
@@ -43,7 +48,7 @@ export default async function ProjectsPage() {
           }
         />
       ) : (
-        <ProjectsView projects={projects} />
+        <ProjectsView projects={projects} initialQuery={q ?? ""} />
       )}
       {/* TODO(redesign): show connected repo hints when the existing project
           list data includes connection metadata without adding a new query. */}

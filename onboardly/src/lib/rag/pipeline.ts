@@ -10,6 +10,9 @@ import { embedChunks } from "@/lib/rag/embeddings";
 
 const BATCH_SIZE = 50;
 const MAX_RETRIES = 3;
+// Cap chunks embedded per invocation so a large project can't blow past
+// serverless request timeouts. The function is idempotent — re-run to continue.
+const MAX_CHUNKS_PER_RUN = 500;
 
 /** Parse the retry-after seconds from a Gemini 429 error message. */
 function parseRetryDelay(msg: string): number {
@@ -44,6 +47,8 @@ export interface EmbedResult {
   embedded: number;
   skipped: number;
   total: number;
+  /** True when chunks remain un-embedded after this run (hit the per-run cap). */
+  hasMore: boolean;
   errors: string[];
 }
 
@@ -53,7 +58,8 @@ export interface EmbedResult {
  * multiple times — fully idempotent.
  */
 export async function embedProjectChunks(projectId: string): Promise<EmbedResult> {
-  // Fetch all chunks for the project that have no embedding row yet.
+  // Fetch un-embedded chunks for the project, capped per run. We request one
+  // extra row to detect whether more remain beyond the cap.
   const chunks = await prisma.$queryRaw<{ id: string; content: string }[]>`
     SELECT dc.id, dc.content
     FROM document_chunks dc
@@ -62,7 +68,11 @@ export async function embedProjectChunks(projectId: string): Promise<EmbedResult
     WHERE d.project_id = ${projectId}::uuid
       AND e.chunk_id IS NULL
     ORDER BY dc.created_at, dc.chunk_index
+    LIMIT ${MAX_CHUNKS_PER_RUN + 1}
   `;
+
+  const hasMore = chunks.length > MAX_CHUNKS_PER_RUN;
+  if (hasMore) chunks.length = MAX_CHUNKS_PER_RUN;
 
   const total = chunks.length;
   let embedded = 0;
@@ -110,7 +120,7 @@ export async function embedProjectChunks(projectId: string): Promise<EmbedResult
   `;
   const skipped = Number(alreadyEmbedded[0]?.count ?? 0) - embedded;
 
-  return { embedded, skipped: Math.max(0, skipped), total, errors };
+  return { embedded, skipped: Math.max(0, skipped), total, hasMore, errors };
 }
 
 /** Count how many chunks have embeddings vs total for a project. */

@@ -2,6 +2,7 @@
 // from the DB, then hands off to the client-side CoursePlayer.
 
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CoursePlayer } from "@/components/course/CoursePlayer";
 import { ArrowLeft } from "lucide-react";
@@ -19,16 +20,21 @@ export default async function CoursePage({
 }) {
   const { projectId } = await params;
 
-  const [githubConn, initialCourse, access] = await Promise.all([
+  // Gate first: never load or render course data for non-members.
+  const access = await getProjectAccess(projectId);
+  if (!access) {
+    notFound();
+  }
+
+  const [githubConn, initialCourse] = await Promise.all([
     prisma.projectConnection.findUnique({
       where: { projectId_provider: { projectId, provider: Provider.GITHUB } },
       select: { externalRef: true },
     }),
     loadCourseFromDb(projectId),
-    getProjectAccess(projectId),
   ]);
 
-  const isAdmin = access?.role === ProjectRole.ADMIN;
+  const isAdmin = access.role === ProjectRole.ADMIN;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

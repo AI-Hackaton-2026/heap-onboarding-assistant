@@ -34,7 +34,11 @@ export function DeleteProjectButton({
     startTransition(async () => {
       const formData = new FormData();
       formData.append("projectId", projectId);
-      await deleteProject(formData);
+      const result = await deleteProject(formData);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not delete the project.");
+        return;
+      }
       setOpen(false);
       toast.success(`"${projectName}" deleted successfully.`);
       router.push("/projects");

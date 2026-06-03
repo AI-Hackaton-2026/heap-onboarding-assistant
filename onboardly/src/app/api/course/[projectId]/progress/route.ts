@@ -1,22 +1,28 @@
 // GET  /api/course/[projectId]/progress — returns completed lesson IDs for the current user
-// POST /api/course/[projectId]/progress — marks a lesson as COMPLETED (upserts ProjectMember if needed)
+// POST /api/course/[projectId]/progress — marks a lesson as COMPLETED
+//
+// Both require an ACTIVE project membership (via getProjectAccess). Progress is
+// never a path to self-enrollment: the caller must already be a member, and the
+// lesson must belong to a course in this project.
 
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db/prisma";
-import { ProgressStatus, MemberSource, MemberStatus } from "@/generated/prisma/enums";
+import { getCurrentUserId, getProjectAccess } from "@/lib/members/access";
+import { ProgressStatus } from "@/generated/prisma/enums";
 
 type RouteContext = { params: Promise<{ projectId: string }> };
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
   const { projectId } = await params;
 
+  const access = await getProjectAccess(projectId);
+  if (!access) {
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const userId = await getCurrentUserId();
   const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId: user.id } },
+    where: { projectId_userId: { projectId, userId: userId! } },
     select: { id: true },
   });
 
@@ -31,11 +37,12 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 }
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
   const { projectId } = await params;
+
+  const access = await getProjectAccess(projectId);
+  if (!access) {
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  }
 
   let body: { lessonId?: string };
   try {
@@ -45,20 +52,31 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   const { lessonId } = body;
-  if (!lessonId) return Response.json({ error: "lessonId is required" }, { status: 400 });
+  if (!lessonId) {
+    return Response.json({ error: "lessonId is required" }, { status: 400 });
+  }
 
-  const member = await prisma.projectMember.upsert({
-    where: { projectId_userId: { projectId, userId: user.id } },
-    create: {
-      projectId,
-      userId: user.id,
-      source: MemberSource.MANUAL,
-      status: MemberStatus.ACTIVE,
-      joinedAt: new Date(),
-    },
-    update: {},
+  // The lesson must belong to a course in this project — prevents marking
+  // lessons from other projects, which would corrupt onboarding metrics.
+  const lesson = await prisma.lesson.findFirst({
+    where: { id: lessonId, module: { course: { projectId } } },
     select: { id: true },
   });
+  if (!lesson) {
+    return Response.json(
+      { error: "Lesson does not belong to this project" },
+      { status: 404 },
+    );
+  }
+
+  const userId = await getCurrentUserId();
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId: userId! } },
+    select: { id: true },
+  });
+  if (!member) {
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  }
 
   await prisma.lessonProgress.upsert({
     where: { lessonId_memberId: { lessonId, memberId: member.id } },

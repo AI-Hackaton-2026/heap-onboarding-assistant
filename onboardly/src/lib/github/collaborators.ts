@@ -65,8 +65,11 @@ export async function listRepoCollaborators(
   const headers = await installationAuthHeaders(installationId);
   const collaborators: RepoCollaborator[] = [];
   const perPage = 100;
+  // Hard cap pages so a pathological/huge collaborator list can't hang the
+  // request or exhaust memory (100 pages = up to 10k collaborators).
+  const MAX_PAGES = 100;
 
-  for (let page = 1; ; page++) {
+  for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await fetch(
       `${GITHUB_API}/repos/${owner}/${repo}/collaborators?per_page=${perPage}&page=${page}`,
       { headers },
