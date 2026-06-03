@@ -1,43 +1,73 @@
-# Current Feature: GitHub Repo Connection Flow (T-GH-1)
+# Current Feature
 
 ## Status
 
-Complete - branch `feature/github-repo-connection` (off freshly synced
-`development`). Task `T-GH-1` from `context/tasks.md` (finish Phase 3). Builds on
-the GitHub App auth + member-discovery work from the DB-rewrite feature.
-Verified end-to-end in the browser (connect/verify/disconnect cycle + error
-path + responsive at 390); `tsc`/lint/build pass.
+No active feature.
 
 ## Goals
 
-Turn the project's GitHub connection from a static read-only string into a real,
-verifiable product flow, admin-only, on the project overview Connections card:
-
-1. **Connect / install** — from the Connections card, an admin can install the
-   Onboardly GitHub App on the project's repo owner (reusing the existing
-   `?state=projectId` install URL → `/api/github/callback` which persists
-   `installation_id`).
-2. **Verify access** — confirm the resolved installation can actually read the
-   repo (installation token → `GET /repos/{owner}/{repo}`); on success set
-   `ConnectionStatus = CONNECTED` + `connectedAt`, on failure surface a clear
-   error and leave status `ERROR`/`DISCONNECTED`.
-3. **Live status display** — replace the static repo string with live state:
-   Connected (with repo + verified time), Not installed (with install action),
-   or Error (with retry/reinstall). Slack stays read-only/TODO this slice.
-4. **Disconnect** — an admin can disconnect, clearing the installation + status.
+_None — set on the next `/feature load`._
 
 ## Notes
 
-Scope decided with the user: repo *selection* stays in create/edit; this slice
-adds **verify + status + connect/disconnect actions on the overview card** (not a
-separate connect dialog). All actions are ADMIN-gated via `requireProjectAdmin`
-(Prisma bypasses RLS — enforce in app logic). Reuse existing helpers:
-`getRepoInstallationId`, `installationAuthHeaders`, `getProjectInstallationId`
-(self-healing), `saveProjectInstallationId`, `githubAppInstallUrl(projectId)`.
-Writes go to the normalized `project_connections` row (`status`, `connectedAt`,
-`installationId`). Must be fully responsive (390/768/1440) and token-themed.
+_None._
 
 ## History
+
+### New-Hire Dashboard UI (Onboarding Overview) — Complete
+
+Done + committed on branch `feature/dashboard-ui` (off `development`); pushed.
+Not yet merged to `development`. Full spec: `context/features/dashboard-ui.md`.
+
+Rebuilt `/dashboard` as the new-hire **onboarding overview** from the reference
+design — reusable card components driven entirely by **mock data** (no DB reads
+this slice). Tokens only (purple theme, light+dark), fully responsive.
+
+- **Data layer (mock):** `src/types/dashboard.ts` (`StepStatus`, `FocusTask`,
+  `OnboardingStep`, `UpcomingEvent`, `RecommendedRead`, `ActivityItem`,
+  `DashboardData`) + `src/data/mock/dashboard.ts` (`mockDashboard`: Alex, 66%
+  progress, today's focus, onboarding steps, upcoming, reads, sample question,
+  recent activity).
+- **Components (`src/components/dashboard/`):** `WelcomeBanner` (greeting +
+  dual CTA + theme-swapped illustration + embedded `ProgressRing`),
+  `ProgressRing` (pure-SVG ring), `DashboardCard` (shared wrapper), `status.tsx`
+  (`StatusIcon` / `StatusLabel`), `TodaysFocusCard`, `OnboardingProgressCard`
+  (timeline), `UpcomingCard`, `RecommendedReadsCard`, `AskOnboardlyCard`,
+  `RecentActivityCard`, `ComingSoon`.
+- **Page + routes:** `/dashboard` recomposed (mock data, `mx-auto max-w-6xl`,
+  responsive grid); placeholder sub-routes `My Plan` / `Resources` /
+  `AI Assistant` / `Settings` via `ComingSoon`.
+- **Shell restructure:** `Sidebar` → primary nav (Overview / My Plan /
+  Resources / AI Assistant / Settings) + Workspace (Projects / Integrations),
+  active state via `usePathname`, real user chip (avatar/name + sign-out)
+  pinned to the bottom; `AppShell` → `h-screen overflow-hidden` flex shell
+  (fixes the bottom user chip falling below the fold) threading the Supabase
+  identity to the sidebar; `AuthHeader` → logo + static search affordance +
+  "Open today's tasks" CTA / theme toggle / bell, aligned to the card column.
+- **Illustration:** two PNGs in `public/` (`onboarding-illustration-light.png`,
+  `…-dark.png`), made transparent via flood-fill knockout, theme-swapped with
+  `dark:hidden` / `hidden dark:block`. `next.config.ts` → `devIndicators:
+  false`.
+- **Responsive fix:** the progress ring's pull-in negative margin is gated to
+  `sm:`+ (where the illustration is visible beside it) so the ring stays
+  centered and never overlaps the illustration at narrow widths.
+- **Verified:** `next lint` + `next build` pass (0 errors). Browser-confirmed by
+  the user (banner alignment + ring/illustration spacing across widths, both
+  themes). Note: the full automated 390/768/1440 sweep was done visually by the
+  user, not via Playwright (browser session was locked).
+
+### GitHub Repo Connection Flow (T-GH-1) — Complete
+
+Done + merged to `development` + pushed (`1df0ff5`); branch deleted. The project
+overview Connections card is now a live, admin-gated GitHub panel: Verify access
+(installation token → `GET /repos/{owner}/{repo}` → `project_connections.status`
+= CONNECTED + `connectedAt`, else ERROR/DISCONNECTED with a clear reason), live
+status display, Install App (`?state=projectId`), and Disconnect. Reuses the
+self-healing installation resolver and the `/api/github/callback` route. Verified
+end-to-end in the browser (connect/verify/disconnect + error path + responsive at
+390). Files: `src/lib/github/client.ts` (`verifyRepoAccess`),
+`src/lib/projects/connection-actions.ts`,
+`src/components/projects/GitHubConnectionCard.tsx`.
 
 ### Greenfield DB Rewrite — Complete
 
