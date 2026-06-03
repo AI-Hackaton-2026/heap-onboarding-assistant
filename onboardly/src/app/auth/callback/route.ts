@@ -49,7 +49,12 @@ export async function GET(request: NextRequest) {
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
           path: "/",
-          maxAge: 60 * 60, // ~1h, matching GitHub's token lifetime
+          // GitHub OAuth App user tokens don't expire by default, but Supabase
+          // only hands us the provider_token at sign-in (never on refresh). Keep
+          // the cookie roughly in step with the app session so GitHub doesn't
+          // appear "disconnected" mid-session. If the token is ever revoked, repo
+          // calls 401 and the UI falls back to an in-place "Reconnect GitHub".
+          maxAge: 60 * 60 * 24 * 7, // 7 days
         });
       }
       return NextResponse.redirect(`${origin}${safePath}`);

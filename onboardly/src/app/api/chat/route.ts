@@ -27,6 +27,8 @@ interface ChatRequestBody {
   chatId?: string;
 }
 
+const MAX_MESSAGE_LENGTH = 4000;
+
 export async function POST(req: NextRequest) {
   // 1. Auth
   const supabase = await createClient();
@@ -50,6 +52,12 @@ export async function POST(req: NextRequest) {
   const { message, projectId, chatId } = body;
   if (!message || typeof message !== "string" || !message.trim()) {
     return Response.json({ error: "message is required" }, { status: 400 });
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return Response.json(
+      { error: `message must be ${MAX_MESSAGE_LENGTH} characters or fewer` },
+      { status: 400 },
+    );
   }
   const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -106,8 +114,11 @@ export async function POST(req: NextRequest) {
   let chunks: Awaited<ReturnType<typeof searchKnowledge>> = [];
   try {
     chunks = await searchKnowledge(message, projectId);
-  } catch {
-    // If embedding/search fails (e.g. no embeddings table rows), proceed with empty context
+  } catch (e) {
+    // Non-fatal: proceed with empty context (e.g. no embeddings yet), but log
+    // so genuine RAG/search outages are visible instead of silently degrading.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[chat] knowledge search failed:", msg);
   }
 
   // 6. Build context block for the prompt
@@ -167,31 +178,44 @@ export async function POST(req: NextRequest) {
   }));
 
   // 9. Persist both turns in a single transaction
-  await prisma.$transaction([
-    prisma.chatMessage.create({
-      data: {
-        chatId: resolvedChatId,
-        role: "USER",
-        content: message,
-      },
-    }),
-    prisma.chatMessage.create({
-      data: {
-        chatId: resolvedChatId,
-        role: "ASSISTANT",
-        content: answer,
-        citations:
-          chunks.length > 0
-            ? {
-                create: chunks.map((chunk) => ({
-                  chunkId: chunk.id,
-                  label: chunk.sourceLabel,
-                })),
-              }
-            : undefined,
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.chatMessage.create({
+        data: {
+          chatId: resolvedChatId,
+          role: "USER",
+          content: message,
+        },
+      }),
+      prisma.chatMessage.create({
+        data: {
+          chatId: resolvedChatId,
+          role: "ASSISTANT",
+          content: answer,
+          citations:
+            chunks.length > 0
+              ? {
+                  create: chunks.map((chunk) => ({
+                    chunkId: chunk.id,
+                    label: chunk.sourceLabel,
+                  })),
+                }
+              : undefined,
+        },
+      }),
+    ]);
+  } catch (e) {
+    // The answer was generated successfully; only persistence failed. Return the
+    // answer so the user isn't penalised for a DB hiccup, but flag it.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[chat] failed to persist messages:", msg);
+    return Response.json({
+      answer,
+      citations,
+      chatId: resolvedChatId,
+      persisted: false,
+    });
+  }
 
   return Response.json({
     answer,

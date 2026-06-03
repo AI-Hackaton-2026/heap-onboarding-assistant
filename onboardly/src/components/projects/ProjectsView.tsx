@@ -30,11 +30,12 @@ type ViewMode = "tiles" | "list";
 
 interface ProjectsViewProps {
   projects: AccessibleProject[];
+  initialQuery?: string;
 }
 
-export function ProjectsView({ projects }: ProjectsViewProps) {
+export function ProjectsView({ projects, initialQuery = "" }: ProjectsViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("tiles");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredProjects = useMemo(() => {
