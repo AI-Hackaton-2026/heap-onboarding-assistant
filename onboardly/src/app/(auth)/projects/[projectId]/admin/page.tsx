@@ -12,6 +12,15 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { requireProjectAdmin } from "@/lib/members/access";
+import { PageHeader } from "@/components/layout/PageHeader";
+import {
+  Database,
+  FolderGit2,
+  GraduationCap,
+  MessageSquare,
+  RefreshCw,
+  Settings,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,25 +36,33 @@ export default async function AdminPage({
   }
 
   const controls = [
-    "Resync GitHub",
-    "Resync Slack",
-    "Regenerate course",
-    "Rebuild knowledge base",
+    { label: "Resync GitHub", icon: FolderGit2 },
+    { label: "Resync Slack", icon: MessageSquare },
+    { label: "Regenerate course", icon: GraduationCap },
+    { label: "Rebuild knowledge base", icon: RefreshCw },
   ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-semibold">Admin</h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title="Admin"
+        subtitle={`Manage knowledge and generation controls for ${access.project.name}.`}
+        icon={Settings}
+      />
       <Card>
         <CardHeader>
-          <CardTitle>Knowledge base</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="text-primary size-4" />
+            Knowledge base
+          </CardTitle>
           <CardDescription>
             GitHub, Slack, embedding, and course-generation status.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {controls.map((label) => (
+          {controls.map(({ label, icon: Icon }) => (
             <Button key={label} variant="outline" size="sm" disabled>
+              <Icon className="size-4" />
               {label}
             </Button>
           ))}

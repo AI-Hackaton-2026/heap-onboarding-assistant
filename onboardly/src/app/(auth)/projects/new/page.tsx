@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { githubAppInstallUrl } from "@/lib/github/oauth";
 import { listAvailableGitHubRepos } from "@/lib/projects/github";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FolderPlus, X } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,23 +22,27 @@ export default async function NewProjectPage() {
   const githubRepos = await listAvailableGitHubRepos();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">New project</h1>
-          <p className="text-muted-foreground text-sm">
-            Set up a project to connect a repo, sync Slack, and build its
-            knowledge base.
-          </p>
-        </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/projects">Cancel</Link>
-        </Button>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        title="New project"
+        subtitle="Connect a repository, describe the workspace, and start building its onboarding knowledge."
+        icon={FolderPlus}
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/projects">
+              <X className="size-4" />
+              Cancel
+            </Link>
+          </Button>
+        }
+      />
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Project details</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FolderPlus className="text-primary size-4" />
+            Project setup
+          </CardTitle>
           <CardDescription>You can change any of this later.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -12,8 +12,12 @@ import {
   CheckCircle2,
   AlertCircle,
   CircleDashed,
+  ExternalLink,
+  RefreshCw,
+  Unplug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   verifyGitHubConnection,
   disconnectGitHubConnection,
@@ -45,6 +49,11 @@ function formatWhen(iso: string | null): string | null {
       });
 }
 
+function repoOwner(repo: string | null): string | null {
+  const owner = repo?.split("/")[0]?.trim();
+  return owner || null;
+}
+
 export function GitHubConnectionCard({
   projectId,
   repo,
@@ -74,20 +83,49 @@ export function GitHubConnectionCard({
 
   const connected = status === ConnectionStatus.CONNECTED;
   const verifiedWhen = formatWhen(connectedAt);
+  const owner = repoOwner(repo);
 
   return (
-    <div className="space-y-3">
+    <div className="border-border bg-muted/20 space-y-3 rounded-xl border p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <FolderGit2 className="text-muted-foreground mt-0.5 size-5 shrink-0" />
+          {owner ? (
+            <Avatar className="size-10 shrink-0 rounded-xl">
+              <AvatarImage
+                src={`https://github.com/${encodeURIComponent(owner)}.png`}
+                alt={`${owner} avatar`}
+              />
+              <AvatarFallback className="rounded-xl">
+                {owner.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <span className="bg-primary/10 text-primary inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
+              <FolderGit2 className="size-5" />
+            </span>
+          )}
           <div className="min-w-0 space-y-1">
-            <p className="text-muted-foreground text-xs font-medium uppercase">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               GitHub repo
             </p>
-            <p className="truncate text-sm font-medium">
-              {repo ?? "No repository set"}
-            </p>
-            <StatusLine status={status} repo={repo} verifiedWhen={verifiedWhen} />
+            {repo ? (
+              <Link
+                href={`https://github.com/${repo}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium hover:underline"
+              >
+                <span className="truncate">{repo}</span>
+                <ExternalLink className="size-3.5 shrink-0" />
+              </Link>
+            ) : (
+              <p className="text-sm font-medium">No repository set</p>
+            )}
+            <StatusLine
+              status={status}
+              repo={repo}
+              verifiedWhen={verifiedWhen}
+            />
           </div>
         </div>
 
@@ -102,7 +140,12 @@ export function GitHubConnectionCard({
                   onClick={handleVerify}
                   disabled={isPending}
                 >
-                  {isPending ? "Verifying…" : connected ? "Re-verify" : "Verify access"}
+                  <RefreshCw className="size-4" />
+                  {isPending
+                    ? "Verifying…"
+                    : connected
+                      ? "Re-verify"
+                      : "Verify access"}
                 </Button>
                 {!connected ? (
                   <Button asChild size="sm" variant="outline">
@@ -118,6 +161,7 @@ export function GitHubConnectionCard({
                     onClick={handleDisconnect}
                     disabled={isPending}
                   >
+                    <Unplug className="size-4" />
                     Disconnect
                   </Button>
                 )}

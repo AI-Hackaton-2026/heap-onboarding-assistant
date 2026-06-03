@@ -3,17 +3,12 @@
 // logic because Prisma bypasses RLS.
 
 import Link from "next/link";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
-import { RoleBadge } from "@/components/members/RoleBadge";
+import { ProjectsView } from "@/components/projects/ProjectsView";
 import { listAccessibleProjects } from "@/lib/members/queries";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FolderKanban, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +16,24 @@ export default async function ProjectsPage() {
   const projects = await listAccessibleProjects();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-semibold">Projects</h1>
-        <Button asChild size="sm">
-          <Link href="/projects/new">New project</Link>
-        </Button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title="Projects"
+        subtitle="Your onboarding workspaces, knowledge sources, and team progress."
+        icon={FolderKanban}
+        actions={
+          <Button asChild size="sm">
+            <Link href="/projects/new">
+              <Plus className="size-4" />
+              New project
+            </Link>
+          </Button>
+        }
+      />
 
       {projects.length === 0 ? (
         <EmptyState
+          icon={FolderKanban}
           title="No projects yet"
           description="Create a project to connect a repo, sync Slack, and build its knowledge base."
           action={
@@ -40,25 +43,10 @@ export default async function ProjectsPage() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map(({ project, role }) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>{project.name}</CardTitle>
-                  <CardDescription className="line-clamp-2">
-                    {project.description ?? "No description yet."}
-                  </CardDescription>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <ProjectStatusBadge status={project.status} />
-                    <RoleBadge role={role} />
-                  </div>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <ProjectsView projects={projects} />
       )}
+      {/* TODO(redesign): show connected repo hints when the existing project
+          list data includes connection metadata without adding a new query. */}
     </div>
   );
 }

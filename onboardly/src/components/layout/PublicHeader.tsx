@@ -13,11 +13,11 @@ const NAV_LINKS = [
 
 export function PublicHeader() {
   return (
-    <header className="border-border bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+    <header className="border-border bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link
           href="/"
-          className="font-heading flex items-center gap-2 text-lg font-semibold"
+          className="font-heading flex items-center gap-2 text-lg font-semibold tracking-tight"
         >
           <AppIcon className="size-8" />
           Onboardly

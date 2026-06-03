@@ -29,14 +29,20 @@ export async function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <AuthHeader email={email} />
+      <AuthHeader
+        email={email}
+        avatarUrl={avatarUrl}
+        displayName={displayName}
+      />
       <div className="flex min-h-0 flex-1">
         <Sidebar
           email={email}
           avatarUrl={avatarUrl}
           displayName={displayName}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@
 
 import { deleteProject } from "@/lib/projects/actions";
 import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 export function DeleteProjectButton({
   projectId,
@@ -28,7 +29,13 @@ export function DeleteProjectButton({
       }}
     >
       <input type="hidden" name="projectId" value={projectId} />
-      <Button type="submit" variant="outline" size="sm">
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        className="text-destructive hover:text-destructive"
+      >
+        <Trash2 className="size-4" />
         Delete
       </Button>
     </form>

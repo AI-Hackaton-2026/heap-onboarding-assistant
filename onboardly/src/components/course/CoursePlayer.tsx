@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Course, Lesson } from "@/types/course";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   CheckCircle2,
   Circle,
@@ -17,10 +9,14 @@ import {
   ChevronLeft,
   Loader2,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Markdown } from "@/components/ui/Markdown";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 
 // ── Generate Form ─────────────────────────────────────────────────────────────
@@ -57,76 +53,86 @@ function GenerateForm({ projectId, onCourseReady }: GenerateFormProps) {
   };
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="space-y-2 text-center">
-          <div className="bg-accent mx-auto flex h-12 w-12 items-center justify-center rounded-full">
-            <Sparkles className="text-primary h-6 w-6" />
-          </div>
-          <h2 className="font-heading text-2xl font-semibold">
-            Generate your onboarding course
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Gemini reads your GitHub repo and builds a personalised course for
-            your role.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="role-input">
-              Your role
-            </label>
-            <Input
-              id="role-input"
-              placeholder="e.g. Frontend Engineer, Backend Developer"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && generate()}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="repo-input">
-              GitHub repository
-            </label>
-            <Input
-              id="repo-input"
-              placeholder="owner/repo"
-              value={repo}
-              onChange={(e) => setRepo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && generate()}
-            />
-            <p className="text-muted-foreground text-xs">Format: owner/repo</p>
-          </div>
-
-          {error && <p className="text-destructive text-sm">{error}</p>}
-
-          <Button
-            className="w-full"
-            onClick={generate}
-            disabled={loading || !role.trim() || !repo.trim()}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating course…
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Course
-              </>
-            )}
-          </Button>
-
-          {loading && (
-            <p className="text-muted-foreground text-center text-xs">
-              Reading the repo and generating your course — this takes ~20–40 s
+    <div className="mx-auto flex min-h-[60vh] max-w-6xl flex-col gap-6">
+      <PageHeader
+        title="Onboarding course"
+        subtitle="Generate a guided learning path grounded in this project's repository."
+        icon={BookOpen}
+      />
+      <Card className="mx-auto w-full max-w-lg shadow-sm">
+        <CardContent className="space-y-6 py-4 sm:py-6">
+          <div className="space-y-2 text-center">
+            <div className="bg-primary/10 mx-auto flex size-12 items-center justify-center rounded-2xl">
+              <Sparkles className="text-primary h-6 w-6" />
+            </div>
+            <h2 className="font-heading text-2xl font-semibold">
+              Generate your onboarding course
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Gemini reads your GitHub repo and builds a personalised course for
+              your role.
             </p>
-          )}
-        </div>
-      </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="role-input">
+                Your role
+              </label>
+              <Input
+                id="role-input"
+                placeholder="e.g. Frontend Engineer, Backend Developer"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && generate()}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="repo-input">
+                GitHub repository
+              </label>
+              <Input
+                id="repo-input"
+                placeholder="owner/repo"
+                value={repo}
+                onChange={(e) => setRepo(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && generate()}
+              />
+              <p className="text-muted-foreground text-xs">
+                Format: owner/repo
+              </p>
+            </div>
+
+            {error && <p className="text-destructive text-sm">{error}</p>}
+
+            <Button
+              className="w-full"
+              onClick={generate}
+              disabled={loading || !role.trim() || !repo.trim()}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating course…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Course
+                </>
+              )}
+            </Button>
+
+            {loading && (
+              <p className="text-muted-foreground text-center text-xs">
+                Reading the repo and generating your course — this takes ~20–40
+                s
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -149,12 +155,12 @@ function CourseSidebar({
   onSelectLesson,
 }: CourseSidebarProps) {
   return (
-    <aside className="border-border bg-sidebar flex h-full w-72 shrink-0 flex-col overflow-y-auto border-r">
+    <aside className="border-border bg-sidebar hidden h-full w-72 shrink-0 flex-col overflow-y-auto border-r md:flex">
       <div className="border-border border-b px-5 py-4">
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Onboarding Course
         </p>
-        <h2 className="font-heading mt-0.5 text-sm font-semibold leading-snug">
+        <h2 className="font-heading mt-0.5 text-sm leading-snug font-semibold">
           {course.roleName}
         </h2>
         {course.estimatedDuration && (
@@ -167,7 +173,7 @@ function CourseSidebar({
       <nav className="flex-1 px-3 py-3">
         {course.modules.map((module, mi) => (
           <div key={module.id} className="mb-5">
-            <p className="text-muted-foreground mb-1.5 px-2 text-xs font-semibold uppercase tracking-wider">
+            <p className="text-muted-foreground mb-1.5 px-2 text-xs font-semibold tracking-wider uppercase">
               {module.title}
             </p>
             <div className="space-y-0.5">
@@ -192,9 +198,7 @@ function CourseSidebar({
                       <Circle
                         className={cn(
                           "mt-0.5 h-3.5 w-3.5 shrink-0",
-                          isActive
-                            ? "text-primary"
-                            : "text-muted-foreground",
+                          isActive ? "text-primary" : "text-muted-foreground",
                         )}
                       />
                     )}
@@ -210,89 +214,48 @@ function CourseSidebar({
   );
 }
 
-// ── Markdown prose components ─────────────────────────────────────────────────
-
-const proseComponents = {
-  h1: ({ children }: { children?: ReactNode }) => (
-    <h1 className="font-heading mt-8 mb-3 text-xl font-semibold first:mt-0">
-      {children}
-    </h1>
-  ),
-  h2: ({ children }: { children?: ReactNode }) => (
-    <h2 className="font-heading mt-6 mb-2 text-lg font-semibold">{children}</h2>
-  ),
-  h3: ({ children }: { children?: ReactNode }) => (
-    <h3 className="font-heading mt-5 mb-1.5 text-base font-semibold">
-      {children}
-    </h3>
-  ),
-  p: ({ children }: { children?: ReactNode }) => (
-    <p className="text-foreground/90 mb-4 leading-7">{children}</p>
-  ),
-  ul: ({ children }: { children?: ReactNode }) => (
-    <ul className="mb-4 ml-6 list-disc space-y-1">{children}</ul>
-  ),
-  ol: ({ children }: { children?: ReactNode }) => (
-    <ol className="mb-4 ml-6 list-decimal space-y-1">{children}</ol>
-  ),
-  li: ({ children }: { children?: ReactNode }) => (
-    <li className="text-foreground/90 leading-7">{children}</li>
-  ),
-  pre: ({ children }: { children?: ReactNode }) => (
-    <pre className="bg-muted mb-4 overflow-x-auto rounded-lg p-4 text-sm">
-      {children}
-    </pre>
-  ),
-  code: ({
-    className,
-    children,
-  }: {
-    className?: string;
-    children?: ReactNode;
-  }) => {
-    const isBlock = Boolean(className?.startsWith("language-"));
-    return isBlock ? (
-      <code className={cn("font-mono", className)}>{children}</code>
-    ) : (
-      <code className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-[0.875em]">
-        {children}
-      </code>
-    );
-  },
-  blockquote: ({ children }: { children?: ReactNode }) => (
-    <blockquote className="border-primary/40 text-muted-foreground my-4 border-l-4 pl-4 italic">
-      {children}
-    </blockquote>
-  ),
-  a: ({ href, children }: { href?: string; children?: ReactNode }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-primary hover:underline"
-    >
-      {children}
-    </a>
-  ),
-  strong: ({ children }: { children?: ReactNode }) => (
-    <strong className="font-semibold">{children}</strong>
-  ),
-  table: ({ children }: { children?: ReactNode }) => (
-    <div className="mb-4 overflow-x-auto">
-      <table className="border-border w-full border-collapse border text-sm">
-        {children}
-      </table>
+function MobileLessonSelect({
+  course,
+  currentModuleIdx,
+  currentLessonIdx,
+  onSelectLesson,
+}: {
+  course: Course;
+  currentModuleIdx: number;
+  currentLessonIdx: number;
+  onSelectLesson: (moduleIdx: number, lessonIdx: number) => void;
+}) {
+  return (
+    <div className="border-border bg-background border-b p-3 md:hidden">
+      <label
+        htmlFor="mobile-lesson-select"
+        className="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wide uppercase"
+      >
+        Lesson
+      </label>
+      <select
+        id="mobile-lesson-select"
+        value={`${currentModuleIdx}:${currentLessonIdx}`}
+        onChange={(event) => {
+          const [moduleIdx, lessonIdx] = event.target.value
+            .split(":")
+            .map(Number);
+          onSelectLesson(moduleIdx, lessonIdx);
+        }}
+        className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-9 w-full rounded-lg border bg-transparent px-3 text-sm outline-none focus-visible:ring-3"
+      >
+        {course.modules.flatMap((module, moduleIdx) =>
+          module.lessons.map((lesson, lessonIdx) => (
+            <option
+              key={lesson.id}
+              value={`${moduleIdx}:${lessonIdx}`}
+            >{`${module.title} · ${lesson.title}`}</option>
+          )),
+        )}
+      </select>
     </div>
-  ),
-  th: ({ children }: { children?: ReactNode }) => (
-    <th className="border-border bg-muted border px-3 py-2 text-left font-medium">
-      {children}
-    </th>
-  ),
-  td: ({ children }: { children?: ReactNode }) => (
-    <td className="border-border border px-3 py-2">{children}</td>
-  ),
-};
+  );
+}
 
 // ── Lesson View ───────────────────────────────────────────────────────────────
 
@@ -315,18 +278,11 @@ function LessonView({
     <div className="mx-auto max-w-3xl space-y-8">
       <h1 className="font-heading text-3xl font-semibold">{lesson.title}</h1>
 
-      <div>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={proseComponents}
-        >
-          {lesson.content}
-        </ReactMarkdown>
-      </div>
+      <Markdown>{lesson.content}</Markdown>
 
       {lesson.checklist.length > 0 && (
         <div className="border-border bg-muted/30 rounded-xl border p-6">
-          <h3 className="font-heading mb-4 text-sm font-semibold uppercase tracking-wide">
+          <h3 className="font-heading mb-4 text-sm font-semibold tracking-wide uppercase">
             Checklist
           </h3>
           <ul className="space-y-3">
@@ -359,7 +315,7 @@ function LessonView({
 
       {lesson.quiz.length > 0 && (
         <div className="border-border rounded-xl border p-6">
-          <h3 className="font-heading mb-4 text-sm font-semibold uppercase tracking-wide">
+          <h3 className="font-heading mb-4 text-sm font-semibold tracking-wide uppercase">
             Knowledge Check
           </h3>
           {lesson.quiz.map((q) => {
@@ -521,7 +477,9 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
   }, []);
 
   if (!course) {
-    return <GenerateForm projectId={projectId} onCourseReady={handleCourseReady} />;
+    return (
+      <GenerateForm projectId={projectId} onCourseReady={handleCourseReady} />
+    );
   }
 
   const currentLesson: Lesson =
@@ -531,8 +489,8 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
 
   return (
     <div
-      className="-mx-6 -my-6 flex overflow-hidden"
-      style={{ height: "calc(100dvh - 3rem)" }}
+      className="-mx-4 -my-5 flex overflow-hidden sm:-mx-6 sm:-my-6"
+      style={{ height: "calc(100dvh - 4rem)" }}
     >
       <CourseSidebar
         course={course}
@@ -543,7 +501,13 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-10 py-8">
+        <MobileLessonSelect
+          course={course}
+          currentModuleIdx={currentModuleIdx}
+          currentLessonIdx={currentLessonIdx}
+          onSelectLesson={handleSelectLesson}
+        />
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:px-10 md:py-8">
           <LessonView
             lesson={currentLesson}
             checkedItems={checkedItems}
@@ -557,7 +521,7 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
           />
         </div>
 
-        <div className="border-border bg-background flex items-center justify-between border-t px-10 py-3">
+        <div className="border-border bg-background flex items-center justify-between gap-2 border-t px-4 py-3 sm:px-6 md:px-10">
           <Button
             variant="outline"
             size="sm"

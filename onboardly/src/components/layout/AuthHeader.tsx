@@ -10,27 +10,39 @@ import { AppIcon } from "@/components/layout/AppIcon";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "./UserMenu";
+import { MobileNav } from "./MobileNav";
 
-export function AuthHeader({ email }: { email: string | null }) {
+interface AuthHeaderProps {
+  email: string | null;
+  avatarUrl?: string | null;
+  displayName?: string | null;
+}
+
+export function AuthHeader({ email, avatarUrl, displayName }: AuthHeaderProps) {
   return (
-    <header className="border-border flex h-16 items-stretch border-b">
+    <header className="border-border bg-background/90 flex h-16 items-stretch border-b backdrop-blur">
       {/* Left segment mirrors the sidebar (w-56) and carries a right divider
           that lines up with the sidebar's right border below. Full-width with
           mobile padding when no sidebar. */}
-      <div className="border-border flex w-full shrink-0 items-center justify-start px-4 md:w-56 md:border-r">
+      <div className="border-border flex shrink-0 items-center gap-1 px-2 sm:px-4 md:w-56 md:border-r md:px-7">
+        <MobileNav
+          email={email}
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+        />
         <Link
           href="/dashboard"
           className="font-heading flex shrink-0 items-center gap-2 text-base font-semibold"
         >
           <AppIcon className="size-7" />
-          <span className="hidden sm:inline">Onboardly</span>
+          <span>Onboardly</span>
         </Link>
       </div>
 
       {/* Right segment mirrors the main content area (p-6 + max-w-6xl mx-auto)
           so the search aligns with the card column's left edge and the actions
           align with its right edge. */}
-      <div className="flex flex-1 items-center px-4 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center px-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3">
           {/* Static global-search affordance (behavior out of scope this slice). */}
           <div className="hidden w-full max-w-md md:block">
@@ -62,8 +74,12 @@ export function AuthHeader({ email }: { email: string | null }) {
             </Button>
             {/* Sidebar carries the user identity on desktop; show it here only
                 on mobile, where the sidebar is hidden. */}
-            <div className="md:hidden">
-              <UserMenu email={email} />
+            <div className="hidden sm:block md:hidden">
+              <UserMenu
+                email={email}
+                avatarUrl={avatarUrl}
+                displayName={displayName}
+              />
             </div>
           </div>
         </div>

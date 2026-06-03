@@ -28,6 +28,18 @@ import {
   Provider,
   ConnectionStatus,
 } from "@/generated/prisma/enums";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Markdown } from "@/components/ui/Markdown";
+import {
+  BookOpen,
+  Bot,
+  FolderKanban,
+  MessageSquare,
+  Pencil,
+  Settings,
+  Users,
+  ArrowRight,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -54,16 +66,19 @@ export default async function ProjectOverviewPage({
       href: `/projects/${project.id}/course`,
       title: "Onboarding course",
       description: "AI-generated modules, lessons, and quizzes.",
+      icon: BookOpen,
     },
     {
       href: `/projects/${project.id}/chat`,
       title: "Ask the knowledge base",
       description: "RAG chat with cited sources.",
+      icon: Bot,
     },
     {
       href: `/projects/${project.id}/members`,
       title: "Members",
       description: "See who's on this project and their progress.",
+      icon: Users,
     },
     // Admin surface is admin-only.
     ...(isAdmin
@@ -72,44 +87,70 @@ export default async function ProjectOverviewPage({
             href: `/projects/${project.id}/admin`,
             title: "Admin",
             description: "Manage docs, integrations, and regeneration.",
+            icon: Settings,
           },
         ]
       : []),
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-heading text-2xl font-semibold">
-              {project.name}
-            </h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title={project.name}
+        subtitle="Project onboarding workspace"
+        icon={FolderKanban}
+        badges={
+          <>
             <ProjectStatusBadge status={project.status} />
             <RoleBadge role={role} />
-          </div>
-          {project.description ? (
-            <p className="text-muted-foreground text-sm">
-              {project.description}
-            </p>
-          ) : null}
-        </div>
-        {isAdmin ? (
-          <div className="flex shrink-0 gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/projects/${project.id}/edit`}>Edit</Link>
-            </Button>
-            <DeleteProjectButton
-              projectId={project.id}
-              projectName={project.name}
-            />
-          </div>
-        ) : null}
+          </>
+        }
+        actions={
+          isAdmin ? (
+            <div className="flex shrink-0 gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/projects/${project.id}/edit`}>
+                  <Pencil className="size-4" />
+                  Edit
+                </Link>
+              </Button>
+              <DeleteProjectButton
+                projectId={project.id}
+                projectName={project.name}
+              />
+            </div>
+          ) : null
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link key={section.href} href={section.href} className="group">
+              <Card className="h-full transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
+                <CardHeader className="gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="bg-primary/10 text-primary inline-flex size-10 items-center justify-center rounded-xl">
+                      <Icon className="size-5" />
+                    </span>
+                    <ArrowRight className="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                  <CardTitle>{section.title}</CardTitle>
+                  <CardDescription>{section.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Connections</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FolderKanban className="text-primary size-4" />
+            Connections
+          </CardTitle>
           <CardDescription>
             Sources this project&apos;s knowledge base is built from.
           </CardDescription>
@@ -118,36 +159,40 @@ export default async function ProjectOverviewPage({
           <GitHubConnectionCard
             projectId={project.id}
             repo={connections.githubRepo}
-            status={
-              githubConnection?.status ?? ConnectionStatus.DISCONNECTED
-            }
+            status={githubConnection?.status ?? ConnectionStatus.DISCONNECTED}
             connectedAt={githubConnection?.connectedAt?.toISOString() ?? null}
             canManage={isAdmin}
             installAppUrl={githubAppInstallUrl(project.id)}
           />
-          <div>
-            <p className="text-muted-foreground text-xs font-medium uppercase">
-              Slack workspace
-            </p>
-            <p className="text-sm">
-              {connections.slackWorkspace ?? "Not connected"}
-            </p>
+          <div className="border-border bg-muted/20 flex items-start gap-3 rounded-xl border p-4">
+            <span className="bg-primary/10 text-primary inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
+              <MessageSquare className="size-5" />
+            </span>
+            <div className="space-y-1">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Slack workspace
+              </p>
+              <p className="text-sm font-medium">
+                {connections.slackWorkspace ?? "Not connected"}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {sections.map((section) => (
-          <Link key={section.href} href={section.href}>
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>{section.title}</CardTitle>
-                <CardDescription>{section.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {project.description ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="text-primary size-4" />
+              About this project
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Markdown>{project.description}</Markdown>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

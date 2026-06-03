@@ -27,15 +27,15 @@ export function githubAppInstallUrl(projectId?: string): string {
   const base = slug
     ? `https://github.com/apps/${slug}/installations/new`
     : "https://github.com/settings/installations";
-  return projectId
-    ? `${base}?state=${encodeURIComponent(projectId)}`
-    : base;
+  return projectId ? `${base}?state=${encodeURIComponent(projectId)}` : base;
 }
 
 export interface GitHubRepo {
   id: number;
   name: string;
   fullName: string;
+  ownerLogin: string;
+  ownerAvatarUrl: string | null;
   description: string | null;
   private: boolean;
   htmlUrl: string;
@@ -51,6 +51,10 @@ interface RawRepo {
   id: number;
   name: string;
   full_name: string;
+  owner: {
+    login: string;
+    avatar_url: string | null;
+  };
   description: string | null;
   private: boolean;
   html_url: string;
@@ -158,6 +162,8 @@ export async function listUserRepos(token: string): Promise<GitHubRepo[]> {
     id: repo.id,
     name: repo.name,
     fullName: repo.full_name,
+    ownerLogin: repo.owner.login,
+    ownerAvatarUrl: repo.owner.avatar_url,
     description: repo.description,
     private: repo.private,
     htmlUrl: repo.html_url,

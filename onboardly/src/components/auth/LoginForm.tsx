@@ -34,7 +34,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
   const message = signInState?.error ?? signUpState?.error;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <form action={signInWithGitHub}>
         <input type="hidden" name="redirectTo" value={redirectTo} />
         <Button type="submit" variant="outline" size="lg" className="w-full">
@@ -49,7 +49,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         <span className="bg-border h-px flex-1" />
       </div>
 
-      <form className="flex flex-col gap-3">
+      <form className="flex flex-col gap-4">
         <input type="hidden" name="redirectTo" value={redirectTo} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">

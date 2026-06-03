@@ -6,9 +6,18 @@
 import { LogOut } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function UserMenu({ email }: { email: string | null }) {
-  const initial = email?.[0]?.toUpperCase() ?? "?";
+export function UserMenu({
+  email,
+  avatarUrl,
+  displayName,
+}: {
+  email: string | null;
+  avatarUrl?: string | null;
+  displayName?: string | null;
+}) {
+  const initial = (displayName || email)?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className="flex items-center gap-2">
@@ -17,12 +26,12 @@ export function UserMenu({ email }: { email: string | null }) {
           {email}
         </span>
       ) : null}
-      <span
-        className="bg-primary/10 text-primary inline-flex size-8 items-center justify-center rounded-full text-sm font-medium"
-        aria-hidden
-      >
-        {initial}
-      </span>
+      <Avatar className="size-8">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+        <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+          {initial}
+        </AvatarFallback>
+      </Avatar>
       <form action={signOut}>
         <Button type="submit" variant="ghost" size="icon" title="Sign out">
           <LogOut />

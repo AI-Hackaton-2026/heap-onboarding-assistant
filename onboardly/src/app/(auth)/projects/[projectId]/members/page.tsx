@@ -15,6 +15,8 @@ import { githubAppInstallUrl } from "@/lib/github/oauth";
 import { getProjectConnection } from "@/lib/projects/connections";
 import { ProjectRole, Provider } from "@/generated/prisma/enums";
 import type { MemberCandidate } from "@/types/member";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ArrowLeft, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -68,16 +70,20 @@ export default async function MembersPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold">Members</h1>
-          <p className="text-muted-foreground text-sm">{access.project.name}</p>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/projects/${projectId}`}>Back to project</Link>
-        </Button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title="Members"
+        subtitle={`Manage the people onboarding into ${access.project.name}.`}
+        icon={Users}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/projects/${projectId}`}>
+              <ArrowLeft className="size-4" />
+              Back to project
+            </Link>
+          </Button>
+        }
+      />
 
       <MemberRoster
         projectId={projectId}

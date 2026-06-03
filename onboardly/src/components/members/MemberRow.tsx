@@ -56,7 +56,7 @@ export function MemberRow({
   }
 
   return (
-    <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+    <div className="hover:bg-muted/30 -mx-2 flex flex-col gap-3 rounded-xl px-2 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       {/* Identity */}
       <div className="flex min-w-0 items-center gap-3">
         <Avatar>

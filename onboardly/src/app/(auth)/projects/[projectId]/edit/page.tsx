@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { requireProjectAdmin } from "@/lib/members/access";
 import { getProjectConnectionRefs } from "@/lib/projects/connections";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Pencil, X } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -32,20 +34,27 @@ export default async function EditProjectPage({
   const connections = await getProjectConnectionRefs(project.id);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">Edit project</h1>
-          <p className="text-muted-foreground text-sm">{project.name}</p>
-        </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/projects/${project.id}`}>Cancel</Link>
-        </Button>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        title="Edit project"
+        subtitle={project.name}
+        icon={Pencil}
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/projects/${project.id}`}>
+              <X className="size-4" />
+              Cancel
+            </Link>
+          </Button>
+        }
+      />
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Project details</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Pencil className="text-primary size-4" />
+            Project settings
+          </CardTitle>
           <CardDescription>
             Update this project&apos;s settings.
           </CardDescription>
