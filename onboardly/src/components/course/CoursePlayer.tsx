@@ -23,12 +23,13 @@ import { cn } from "@/lib/utils";
 
 interface GenerateFormProps {
   projectId: string;
+  initialRepo?: string;
   onCourseReady: (course: Course) => void;
 }
 
-function GenerateForm({ projectId, onCourseReady }: GenerateFormProps) {
+function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormProps) {
   const [role, setRole] = useState("");
-  const [repo, setRepo] = useState("");
+  const [repo, setRepo] = useState(initialRepo ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -390,10 +391,12 @@ function LessonView({
 
 interface CoursePlayerProps {
   projectId: string;
+  initialRepo?: string;
+  initialCourse?: Course;
 }
 
-export function CoursePlayer({ projectId }: CoursePlayerProps) {
-  const [course, setCourse] = useState<Course | null>(null);
+export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePlayerProps) {
+  const [course, setCourse] = useState<Course | null>(initialCourse ?? null);
   const [currentModuleIdx, setCurrentModuleIdx] = useState(0);
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(
@@ -410,6 +413,17 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
       JSON.stringify([...completedLessons]),
     );
   }, [course, completedLessons]);
+
+  const resetCourse = useCallback(async () => {
+    await fetch(`/api/course/${projectId}`, { method: "DELETE" });
+    if (course) localStorage.removeItem(`course-${course.id}`);
+    setCourse(null);
+    setCurrentModuleIdx(0);
+    setCurrentLessonIdx(0);
+    setCompletedLessons(new Set());
+    setCheckedItems({});
+    setQuizAnswers({});
+  }, [projectId, course]);
 
   const allLessons = useMemo(() => {
     if (!course) return [];
@@ -478,7 +492,11 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
 
   if (!course) {
     return (
-      <GenerateForm projectId={projectId} onCourseReady={handleCourseReady} />
+      <GenerateForm
+        projectId={projectId}
+        initialRepo={initialRepo}
+        onCourseReady={handleCourseReady}
+      />
     );
   }
 
@@ -532,9 +550,17 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
             Previous
           </Button>
 
-          <span className="text-muted-foreground text-xs">
-            {currentFlatIdx + 1} / {allLessons.length}
-          </span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-muted-foreground text-xs">
+              {currentFlatIdx + 1} / {allLessons.length}
+            </span>
+            <button
+              onClick={resetCourse}
+              className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
+            >
+              Regenerate
+            </button>
+          </div>
 
           <Button
             size="sm"
