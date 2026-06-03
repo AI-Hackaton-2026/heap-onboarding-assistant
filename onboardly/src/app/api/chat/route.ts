@@ -130,16 +130,31 @@ export async function POST(req: NextRequest) {
   }));
 
   const ai = getGemini();
-  const geminiResponse = await ai.models.generateContent({
-    model: GEMINI_CHAT_MODEL,
-    contents: [
-      ...contentsFromHistory,
-      { role: "user", parts: [{ text: message }] },
-    ],
-    config: {
-      systemInstruction: systemPrompt,
-    },
-  });
+  let geminiResponse;
+  try {
+    geminiResponse = await ai.models.generateContent({
+      model: GEMINI_CHAT_MODEL,
+      contents: [
+        ...contentsFromHistory,
+        { role: "user", parts: [{ text: message }] },
+      ],
+      config: {
+        systemInstruction: systemPrompt,
+      },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const isRateLimit = msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota");
+    if (isRateLimit) {
+      const retryMatch = msg.match(/"retryDelay":"(\d+)/);
+      const retrySec = retryMatch ? Math.ceil(Number(retryMatch[1]) / 1) : null;
+      return Response.json(
+        { error: `Rate limit reached — the AI service quota has been exceeded. ${retrySec ? `Please try again in ${retrySec} seconds.` : "Please try again shortly."}` },
+        { status: 429 },
+      );
+    }
+    return Response.json({ error: `AI service error: ${msg}` }, { status: 502 });
+  }
 
   const answer =
     geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text ??
