@@ -71,6 +71,8 @@ export async function signUpWithPassword(
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
+  const redirectTo = safeRedirectPath(formData.get("redirectTo"));
+
   if (!email || !password) {
     return { error: "Email and password are required." };
   }
@@ -78,21 +80,39 @@ export async function signUpWithPassword(
     return { error: "Password must be at least 8 characters." };
   }
 
-  const origin =
-    (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_APP_URL;
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
-  });
+  const { data, error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
     return { error: error.message };
   }
 
-  // With email confirmation on, the user must verify before a session exists.
-  return { error: "Check your email to confirm your account, then sign in." };
+  // No email verification step: log the user in straight away. When the project
+  // has email confirmation disabled, signUp already returns a session; otherwise
+  // establish one explicitly with the same credentials.
+  if (!data.session) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      return { error: signInError.message };
+    }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    try {
+      await upsertUserIdentity(user);
+    } catch (profileError) {
+      console.error("Failed to upsert user identity:", profileError);
+    }
+  }
+
+  revalidatePath("/", "layout");
+  redirect(redirectTo);
 }
 
 /**

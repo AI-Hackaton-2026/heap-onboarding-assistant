@@ -27,26 +27,33 @@ interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Anchor id for the onboarding tour (matched via `data-tour`). */
+  tour?: string;
 }
 
 // Overview leads the sidebar on its own.
 const primaryNav: NavItem[] = [
-  { href: "/dashboard", label: "Overview", icon: Home },
+  { href: "/dashboard", label: "Overview", icon: Home, tour: "nav-overview" },
 ];
 
 // Workspace surfaces come next.
 const workspaceNav: NavItem[] = [
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/integrations/github", label: "Repositories", icon: FolderGit2 },
-  { href: "/integrations", label: "Integrations", icon: Puzzle },
+  { href: "/projects", label: "Projects", icon: FolderKanban, tour: "nav-projects" },
+  {
+    href: "/integrations/github",
+    label: "Repositories",
+    icon: FolderGit2,
+    tour: "nav-repositories",
+  },
+  { href: "/integrations", label: "Integrations", icon: Puzzle, tour: "nav-integrations" },
 ];
 
 // Onboarding surfaces sit below the Workspace section.
 const onboardingNav: NavItem[] = [
-  { href: "/dashboard/plan", label: "My Plan", icon: ListChecks },
-  { href: "/dashboard/resources", label: "Resources", icon: BookOpen },
-  { href: "/dashboard/assistant", label: "AI Assistant", icon: Sparkles },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/plan", label: "My Plan", icon: ListChecks, tour: "nav-plan" },
+  { href: "/dashboard/resources", label: "Resources", icon: BookOpen, tour: "nav-resources" },
+  { href: "/dashboard/assistant", label: "AI Assistant", icon: Sparkles, tour: "nav-assistant" },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, tour: "nav-settings" },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -68,6 +75,7 @@ function NavLink({
   return (
     <Link
       href={item.href}
+      data-tour={item.tour}
       aria-current={active ? "page" : undefined}
       onClick={onNavigate}
       className={cn(
@@ -114,6 +122,7 @@ export function Sidebar({
 
   return (
     <aside
+      data-tour="nav"
       className={cn(
         "border-sidebar-border bg-sidebar text-sidebar-foreground hidden w-56 shrink-0 flex-col overflow-y-auto border-r p-4 md:flex",
         className,
