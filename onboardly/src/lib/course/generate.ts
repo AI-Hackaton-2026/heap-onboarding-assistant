@@ -36,9 +36,17 @@ interface RawCourse {
   modules: RawModule[];
 }
 
-function buildPrompt(roleName: string, repoContext: string): string {
-  return `You are an expert technical trainer creating an onboarding course for a new ${roleName}.
+function buildPrompt(
+  roleName: string,
+  repoContext: string,
+  docsContext?: string,
+): string {
+  const docsSection = docsContext
+    ? `${docsContext}\n\n---\n\n`
+    : "";
 
+  return `You are an expert technical trainer creating an onboarding course for a new ${roleName}.
+${docsSection}
 Below is content from the GitHub repository this person will work with:
 
 ${repoContext}
@@ -93,9 +101,10 @@ export async function generateCourse(
   _projectId: string,
   roleName: string,
   githubRepo: string,
+  docsContext?: string,
 ): Promise<Course> {
   const repoContext = await fetchRepoContext(githubRepo);
-  const prompt = buildPrompt(roleName, repoContext);
+  const prompt = buildPrompt(roleName, repoContext, docsContext);
 
   const gemini = getGemini();
   const response = await gemini.models.generateContent({

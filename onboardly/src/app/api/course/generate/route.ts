@@ -1,9 +1,11 @@
 // POST /api/course/generate
-// Accepts { projectId, roleName, githubRepo }, runs the Gemini course generator,
-// and returns the full Course JSON.
+// Accepts { projectId, roleName, githubRepo }, fetches document chunks,
+// runs the Gemini course generator, saves to DB, and returns the course JSON.
 
 import { NextRequest } from "next/server";
 import { generateCourse } from "@/lib/course/generate";
+import { saveCourseToDb } from "@/lib/course/db";
+import { fetchProjectChunks } from "@/lib/course/chunks";
 
 interface GenerateRequest {
   projectId?: string;
@@ -29,11 +31,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const docsContext = projectId
+      ? await fetchProjectChunks(projectId)
+      : undefined;
+
     const course = await generateCourse(
       projectId ?? "",
       roleName.trim(),
       githubRepo.trim(),
+      docsContext || undefined,
     );
+
+    if (projectId) {
+      await saveCourseToDb(projectId, course);
+    }
+
     return Response.json(course);
   } catch (err) {
     const message =
