@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { Course, Lesson } from "@/types/course";
 import {
   CheckCircle2,
@@ -23,12 +24,13 @@ import { cn } from "@/lib/utils";
 
 interface GenerateFormProps {
   projectId: string;
+  initialRepo?: string;
   onCourseReady: (course: Course) => void;
 }
 
-function GenerateForm({ projectId, onCourseReady }: GenerateFormProps) {
+function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormProps) {
   const [role, setRole] = useState("");
-  const [repo, setRepo] = useState("");
+  const [repo, setRepo] = useState(initialRepo ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -390,35 +392,100 @@ function LessonView({
 
 interface CoursePlayerProps {
   projectId: string;
+  initialRepo?: string;
+  initialCourse?: Course;
 }
 
-export function CoursePlayer({ projectId }: CoursePlayerProps) {
-  const [course, setCourse] = useState<Course | null>(null);
+const COURSE_STORAGE_KEY = (projectId: string) => `onboardly-course-${projectId}`;
+const PROGRESS_STORAGE_KEY = (courseId: string) => `onboardly-progress-${courseId}`;
+
+function loadCourseFromStorage(projectId: string): Course | null {
+  try {
+    const raw = localStorage.getItem(COURSE_STORAGE_KEY(projectId));
+    return raw ? (JSON.parse(raw) as Course) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadProgressFromStorage(courseId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(PROGRESS_STORAGE_KEY(courseId));
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function CoursePlayer({ projectId, initialRepo, initialCourse }: CoursePlayerProps) {
+  const router = useRouter();
+  const [course, setCourse] = useState<Course | null>(() => {
+    if (initialCourse) return initialCourse;
+    if (typeof window !== "undefined") return loadCourseFromStorage(projectId);
+    return null;
+  });
   const [currentModuleIdx, setCurrentModuleIdx] = useState(0);
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(
-    new Set(),
-  );
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const saved = initialCourse ?? loadCourseFromStorage(projectId);
+    return saved ? loadProgressFromStorage(saved.id) : new Set();
+  });
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
 
-  // Persist completed lessons to localStorage whenever they change
+  // Persist course content to localStorage whenever it changes
   useEffect(() => {
     if (!course) return;
-    localStorage.setItem(
-      `course-${course.id}`,
-      JSON.stringify([...completedLessons]),
-    );
+    localStorage.setItem(COURSE_STORAGE_KEY(projectId), JSON.stringify(course));
+  }, [course, projectId]);
+
+  // Fetch DB progress whenever a course is loaded; fall back to localStorage
+  useEffect(() => {
+    if (!course) return;
+    fetch(`/api/course/${projectId}/progress`)
+      .then((r) => r.json())
+      .then((data: { completedLessonIds?: string[] }) => {
+        if (data.completedLessonIds?.length) {
+          setCompletedLessons(new Set(data.completedLessonIds));
+        } else {
+          const saved = localStorage.getItem(PROGRESS_STORAGE_KEY(course.id));
+          if (saved) {
+            try { setCompletedLessons(new Set(JSON.parse(saved) as string[])); } catch { /* ignore */ }
+          }
+        }
+      })
+      .catch(() => {
+        const saved = localStorage.getItem(PROGRESS_STORAGE_KEY(course.id));
+        if (saved) {
+          try { setCompletedLessons(new Set(JSON.parse(saved) as string[])); } catch { /* ignore */ }
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course?.id, projectId]);
+
+  // Keep progress in localStorage as a session-level cache
+  useEffect(() => {
+    if (!course) return;
+    localStorage.setItem(PROGRESS_STORAGE_KEY(course.id), JSON.stringify([...completedLessons]));
   }, [course, completedLessons]);
+
+  const resetCourse = useCallback(async () => {
+    await fetch(`/api/course/${projectId}`, { method: "DELETE" });
+    localStorage.removeItem(COURSE_STORAGE_KEY(projectId));
+    if (course) localStorage.removeItem(PROGRESS_STORAGE_KEY(course.id));
+    setCourse(null);
+    setCurrentModuleIdx(0);
+    setCurrentLessonIdx(0);
+    setCompletedLessons(new Set());
+    setCheckedItems({});
+    setQuizAnswers({});
+  }, [projectId, course]);
 
   const allLessons = useMemo(() => {
     if (!course) return [];
     return course.modules.flatMap((m, mi) =>
-      m.lessons.map((l, li) => ({
-        moduleIdx: mi,
-        lessonIdx: li,
-        lessonId: l.id,
-      })),
+      m.lessons.map((l, li) => ({ moduleIdx: mi, lessonIdx: li, lessonId: l.id })),
     );
   }, [course]);
 
@@ -429,16 +496,30 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
   const hasPrev = currentFlatIdx > 0;
   const hasNext = currentFlatIdx < allLessons.length - 1;
 
+  const saveProgress = useCallback(
+    (lessonId: string) => {
+      fetch(`/api/course/${projectId}/progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId }),
+      }).catch(() => { /* non-blocking */ });
+    },
+    [projectId],
+  );
+
   const goNext = useCallback(() => {
     if (!course) return;
-    const currentLesson =
-      course.modules[currentModuleIdx].lessons[currentLessonIdx];
+    const currentLesson = course.modules[currentModuleIdx].lessons[currentLessonIdx];
     setCompletedLessons((prev) => new Set([...prev, currentLesson.id]));
+    saveProgress(currentLesson.id);
+
     if (hasNext) {
       const next = allLessons[currentFlatIdx + 1];
       setCurrentModuleIdx(next.moduleIdx);
       setCurrentLessonIdx(next.lessonIdx);
       setQuizAnswers({});
+    } else {
+      router.push(`/projects/${projectId}/course/completed`);
     }
   }, [
     course,
@@ -447,6 +528,9 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
     hasNext,
     allLessons,
     currentFlatIdx,
+    saveProgress,
+    projectId,
+    router,
   ]);
 
   const goPrev = useCallback(() => {
@@ -464,28 +548,21 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
   }, []);
 
   const handleCourseReady = useCallback((newCourse: Course) => {
-    // Hydrate progress from localStorage when a course first loads
-    const saved = localStorage.getItem(`course-${newCourse.id}`);
-    if (saved) {
-      try {
-        setCompletedLessons(new Set(JSON.parse(saved) as string[]));
-      } catch {
-        // ignore malformed data
-      }
-    }
     setCourse(newCourse);
   }, []);
 
   if (!course) {
     return (
-      <GenerateForm projectId={projectId} onCourseReady={handleCourseReady} />
+      <GenerateForm
+        projectId={projectId}
+        initialRepo={initialRepo}
+        onCourseReady={handleCourseReady}
+      />
     );
   }
 
-  const currentLesson: Lesson =
-    course.modules[currentModuleIdx].lessons[currentLessonIdx];
+  const currentLesson: Lesson = course.modules[currentModuleIdx].lessons[currentLessonIdx];
   const isLastLesson = !hasNext;
-  const isCurrentDone = completedLessons.has(currentLesson.id);
 
   return (
     <div
@@ -532,19 +609,23 @@ export function CoursePlayer({ projectId }: CoursePlayerProps) {
             Previous
           </Button>
 
-          <span className="text-muted-foreground text-xs">
-            {currentFlatIdx + 1} / {allLessons.length}
-          </span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-muted-foreground text-xs">
+              {currentFlatIdx + 1} / {allLessons.length}
+            </span>
+            <button
+              onClick={resetCourse}
+              className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
+            >
+              Regenerate
+            </button>
+          </div>
 
-          <Button
-            size="sm"
-            onClick={goNext}
-            disabled={isLastLesson && isCurrentDone}
-          >
+          <Button size="sm" onClick={goNext}>
             {isLastLesson ? (
               <>
                 <CheckCircle2 className="mr-1 h-4 w-4" />
-                {isCurrentDone ? "Course complete" : "Complete"}
+                Complete
               </>
             ) : (
               <>
