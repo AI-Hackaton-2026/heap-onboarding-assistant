@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Course, Lesson } from "@/types/course";
 import {
+  AlertCircle,
   CheckCircle2,
   Circle,
   ChevronRight,
@@ -35,20 +36,29 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
   const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
-    if (!role.trim() || !repo.trim()) return;
+    const trimmedRole = role.trim();
+    if (!trimmedRole) return;
+
+    const trimmedRepo = repo.trim();
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/course/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, roleName: role, githubRepo: repo }),
+        body: JSON.stringify({
+          projectId,
+          roleName: trimmedRole,
+          ...(trimmedRepo ? { githubRepo: trimmedRepo } : {}),
+        }),
       });
       const data = (await res.json()) as Course & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Generation failed");
       onCourseReady(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(
+        err instanceof Error ? err.message : "Generation failed — try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -61,7 +71,22 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
         subtitle="Generate a guided learning path personalised for your role."
         icon={BookOpen}
       />
-      <Card className="mx-auto w-full max-w-lg shadow-sm">
+      <Card className="relative mx-auto w-full max-w-lg shadow-sm">
+        {loading ? (
+          <div
+            className="bg-background/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] backdrop-blur-sm"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 className="text-primary size-10 animate-spin" />
+            <p className="text-sm font-medium">Generating your course…</p>
+            <p className="text-muted-foreground max-w-xs text-center text-xs">
+              This usually takes 30–90 seconds. Keep this tab open.
+            </p>
+          </div>
+        ) : null}
+
         <CardContent className="space-y-6 py-4 sm:py-6">
           <div className="space-y-2 text-center">
             <div className="bg-primary/10 mx-auto flex size-12 items-center justify-center rounded-2xl">
@@ -76,7 +101,7 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4" aria-busy={loading}>
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="role-input">
                 Your role
@@ -85,8 +110,9 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
                 id="role-input"
                 placeholder="e.g. Frontend Engineer, Backend Developer"
                 value={role}
+                disabled={loading}
                 onChange={(e) => setRole(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && generate()}
+                onKeyDown={(e) => e.key === "Enter" && !loading && generate()}
               />
             </div>
 
@@ -99,15 +125,24 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
                 id="repo-input"
                 placeholder="owner/repo — leave blank to use uploaded docs only"
                 value={repo}
+                disabled={loading}
                 onChange={(e) => setRepo(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && generate()}
+                onKeyDown={(e) => e.key === "Enter" && !loading && generate()}
               />
               <p className="text-muted-foreground text-xs">
                 Leave blank if your knowledge base comes from uploaded documents.
               </p>
             </div>
 
-            {error && <p className="text-destructive text-sm">{error}</p>}
+            {error ? (
+              <div
+                role="alert"
+                className="border-destructive/30 bg-destructive/10 text-destructive flex gap-2 rounded-lg border px-3 py-2 text-sm"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <p>{error}</p>
+              </div>
+            ) : null}
 
             <Button
               className="w-full"
@@ -116,22 +151,16 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   Generating course…
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Sparkles className="mr-2 size-4" />
                   Generate Course
                 </>
               )}
             </Button>
-
-            {loading && (
-              <p className="text-muted-foreground text-center text-xs">
-                Generating your course from the knowledge base — this takes ~20–40s
-              </p>
-            )}
           </div>
         </CardContent>
       </Card>
