@@ -17,6 +17,7 @@ import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { RoleBadge } from "@/components/members/RoleBadge";
 import { GitHubConnectionCard } from "@/components/projects/GitHubConnectionCard";
+import { CreatedToast } from "@/components/projects/CreatedToast";
 import { getProjectAccess } from "@/lib/members/access";
 import {
   getProjectConnection,
@@ -31,6 +32,8 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Markdown } from "@/components/ui/Markdown";
 import {
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
   Bot,
   FolderKanban,
@@ -38,7 +41,6 @@ import {
   Pencil,
   Settings,
   Users,
-  ArrowRight,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +97,14 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <CreatedToast />
+      <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-1">
+        <Link href="/projects">
+          <ArrowLeft className="size-4" />
+          All projects
+        </Link>
+      </Button>
+
       <PageHeader
         title={project.name}
         subtitle="Project onboarding workspace"

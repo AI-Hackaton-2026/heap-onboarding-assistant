@@ -183,7 +183,7 @@ export async function createProject(
   });
 
   revalidatePath("/projects");
-  redirect(`/projects/${project.id}`);
+  redirect(`/projects/${project.id}?created=1`);
 }
 
 export async function updateProject(
@@ -268,13 +268,8 @@ export async function updateProject(
 export async function deleteProject(formData: FormData): Promise<void> {
   const projectId = String(formData.get("projectId") ?? "").trim();
   const access = projectId ? await requireProjectAdmin(projectId) : null;
-  if (!access) {
-    // Not an admin (or not ours) — fall through to the list quietly.
-    redirect("/projects");
-  }
+  if (!access) return;
 
   await prisma.project.delete({ where: { id: access.project.id } });
-
   revalidatePath("/projects");
-  redirect("/projects");
 }

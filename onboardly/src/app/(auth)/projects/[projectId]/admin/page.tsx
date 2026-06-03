@@ -2,6 +2,7 @@
 // (resync GitHub/Slack, regenerate course, rebuild knowledge base). Admin-only:
 // members 404 here.
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Card,
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { requireProjectAdmin } from "@/lib/members/access";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
+  ArrowLeft,
   Database,
   FolderGit2,
   GraduationCap,
@@ -44,6 +46,13 @@ export default async function AdminPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-1">
+        <Link href={`/projects/${projectId}`}>
+          <ArrowLeft className="size-4" />
+          Back to project
+        </Link>
+      </Button>
+
       <PageHeader
         title="Admin"
         subtitle={`Manage knowledge and generation controls for ${access.project.name}.`}
