@@ -1,6 +1,5 @@
-// Shared database-related types. Mirrors the Supabase Postgres schema
-// (see context/roadmap.md Phase 1). Generated Supabase types can replace
-// the `Database` placeholder later via `supabase gen types`.
+// Shared database-related types. Generated Supabase types can replace the
+// `Database` placeholder later via `supabase gen types`.
 
 export type UUID = string;
 export type ISODateString = string;

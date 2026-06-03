@@ -1,6 +1,5 @@
 // Public landing / welcome page for Onboardly.
-// Faithful reproduction of the reference design (context/features/screenshots):
-// badge + headline + subcopy + CTAs + feature row on the left, a fanned stack of
+// Badge + headline + subcopy + CTAs + feature row on the left, a fanned stack of
 // overlapping product-preview cards on the right over a dot-grid + concentric-ring
 // decoration, and a stats strip below. Responsive (single column on mobile,
 // two-column split on large screens).

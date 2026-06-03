@@ -1,223 +1,227 @@
-# Onboardly 🚀
-
-> **AI Onboarding Assistant** that actually gets used — grounded in your company's Slack, GitHub, and internal docs.
-
-Built by **Team Heap** for the **FEP AI Hackathon 2026** (Theme 9 — AI Onboarding Assistant).
-
----
-
-## The Problem
-
-New employees need a lot of information in their first weeks, and finding the right resource, process, or person is slow and frustrating. Managers and colleagues answer the same questions over and over. Onboarding lives in the heads of a few people — it doesn't scale, and every new hire gets a different experience.
-
-## What Onboardly Does
-
-Onboardly is a conversational AI assistant that:
-
-1. **Generates a personalized onboarding plan** from a role and department — a developer gets a different plan than someone in HR.
-2. **Answers questions in natural language** using the company's real documents, and **cites its sources** so answers are verifiable — no hallucinations.
-3. **Tracks progress** through an interactive checklist, and surfaces to HR where new hires get stuck.
-
-The core idea: instead of a chatbot that makes things up, Onboardly uses **RAG (Retrieval-Augmented Generation)** over the company's actual knowledge — so every answer is grounded and traceable.
+<div align="center">
+  <img src="./onboardly/src/app/icon1.png" alt="Onboardly logo" width="112" />
+  <h1>Onboardly</h1>
+  <p><strong>An AI-powered onboarding workspace grounded in your codebase, documents, and team knowledge.</strong></p>
+  <p>Built by <strong>Team Heap</strong> for the <strong>FEP AI Hackathon 2026</strong>.</p>
+  <p>
+    <a href="https://nextjs.org/"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&amp;logoColor=white" /></a>
+    <a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&amp;logoColor=0B1F33" /></a>
+    <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&amp;logoColor=white" /></a>
+    <a href="https://tailwindcss.com/"><img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&amp;logoColor=white" /></a>
+    <a href="https://supabase.com/"><img alt="Supabase" src="https://img.shields.io/badge/Supabase-Postgres_%2B_pgvector-3FCF8E?logo=supabase&amp;logoColor=white" /></a>
+    <a href="https://www.prisma.io/"><img alt="Prisma" src="https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma&amp;logoColor=white" /></a>
+    <a href="https://ai.google.dev/"><img alt="Google Gemini" src="https://img.shields.io/badge/Google_Gemini-AI-8E75B2?logo=googlegemini&amp;logoColor=white" /></a>
+  </p>
+</div>
 
 ---
 
-## Features
+## Overview
 
-| Feature | Description | Priority |
-| --- | --- | --- |
-| 🗓️ **Onboarding Plan Generator** | Enter a role + department → AI returns a structured plan (Day 1 / Week 1 / Weeks 2–4) as typed JSON. Role-specific. | MUST |
-| 💬 **RAG Chat Assistant** | Ask anything ("How do I request leave?", "What's our branching strategy?"). AI retrieves relevant chunks and answers **with a cited source** (e.g. `[GitHub: backend/README.md]`). | MUST |
-| ✅ **Progress Checklist** | Plan items become an interactive checklist with a progress bar. State is persisted per session. | MUST |
-| 🗺️ **Guided Conversational Flow** | The assistant proactively suggests the next logical step from the plan — the user doesn't need to know what to ask. | MUST |
-| 💾 **Context Memory** | Remembers the user's role and progress across the session, so they never repeat themselves. | MUST |
-| 👤 **"Who do I ask?"** | Matches a question to the right person from the Slack org chart, and can draft an intro message. | SHOULD |
-| 📊 **HR Dashboard** | Overview of new hires, completion %, most-asked questions, and bottleneck topics. | STRETCH |
-| 🎓 **Knowledge Gap Alert** | When the AI can't find an answer, it logs the gap so HR knows which docs are missing. | STRETCH |
+Onboardly helps new hires become productive without hunting through scattered
+repositories, documents, chat history, and tribal knowledge. Teams create a
+project workspace, connect its knowledge sources, invite members, and generate a
+role-specific onboarding experience.
 
----
+The assistant uses retrieval-augmented generation (RAG) over project-scoped
+knowledge. Answers are grounded in indexed source chunks and returned with
+citations, while onboarding courses turn the same knowledge into guided lessons,
+checklists, and quizzes.
+
+## Highlights
+
+- **Project workspaces** with admin/member roles and project-scoped access.
+- **GitHub integration** for repository browsing, GitHub App connection, codebase
+  sync, and collaborator discovery.
+- **Document knowledge base** for PDF, DOCX, Markdown, and text uploads.
+- **Gemini embeddings + pgvector search** for project-specific semantic
+  retrieval.
+- **RAG chat with citations** and persisted conversation history.
+- **AI-generated onboarding courses** with modules, lessons, tasks, quizzes, and
+  completion tracking.
+- **New-hire dashboard** for focus items, progress, recommended reads, and recent
+  activity.
+- **Responsive light and dark UI** built with shadcn/ui and semantic Tailwind
+  tokens.
+
+> Slack sync is included as a demo pipeline backed by mock workspace data. The
+> production Slack API client is intentionally left for a future integration.
+
+## Product Flow
+
+1. Sign in with GitHub or create an email account.
+2. Create a project and select an available GitHub repository.
+3. Install and verify the Onboardly GitHub App for repository access.
+4. Sync repository content or upload internal documents.
+5. Generate embeddings to build the project knowledge base.
+6. Invite repository collaborators as project members.
+7. Ask cited questions or generate a role-specific onboarding course.
+8. Track progress from the project workspace and personal dashboard.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    GH[GitHub App] --> INGEST[Ingestion and chunking]
+    DOCS[Uploaded documents] --> INGEST
+    SLACK[Slack demo data] --> INGEST
+
+    INGEST --> DB[(Supabase Postgres)]
+    INGEST --> EMBED[Gemini embeddings]
+    EMBED --> VECTOR[(pgvector)]
+
+    USER[New hire] --> APP[Next.js application]
+    APP --> AUTH[Supabase Auth]
+    APP --> DB
+    APP --> SEARCH[Project-scoped semantic search]
+    SEARCH --> VECTOR
+    SEARCH --> CHAT[Gemini RAG chat]
+    DB --> COURSE[Gemini course generation]
+    CHAT --> USER
+    COURSE --> USER
 ```
-  Slack API ─┐
-  GitHub API ─┼─→ Ingestion & Chunking ─→ Embeddings (Gemini) ─→ Vector Store (Supabase pgvector)
-  HR Docs ───┘
 
-  User enters role ─→ LLM (Gemini) ─→ ┌─ 📋 Onboarding Plan
-                                       ├─ 💬 Chat with citations
-                                       └─ 📊 HR Dashboard
-```
+Onboardly is a single full-stack Next.js App Router application. Server
+components, API routes, auth, project access checks, ingestion pipelines, and the
+UI live in one TypeScript codebase.
 
-Onboardly is a **single Next.js (App Router) full-stack app** — the UI and the API routes live in one TypeScript codebase and deploy together to Vercel.
+### GitHub OAuth vs. GitHub App
 
-### How RAG works (no hallucinations)
+Onboardly uses two distinct GitHub integrations:
 
-```
-User asks "How do we deploy?"
-    → embed the question
-    → retrieve top-3 chunks from the vector store
-    → LLM receives: prompt + retrieved context
-    → answer + [Source: repo/README.md]
-```
-
-The model **only answers from retrieved documents**. If it can't find a relevant answer, it says so ("I couldn't find this in the company documents") rather than guessing.
-
-> **Note on data sources:** For early development, Slack and GitHub content is simulated with mock data under `src/data/mock/`. The integration helpers under `src/lib/github` and `src/lib/slack` start as placeholders and are swapped for real Slack/GitHub sync once those integrations are wired — no architectural change needed.
-
----
+| Integration                   | Purpose                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| **GitHub OAuth via Supabase** | Signs users in and lists repositories visible to their GitHub account.                 |
+| **Onboardly GitHub App**      | Grants persistent repository access for syncing content and discovering collaborators. |
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Framework | Next.js (App Router) — single full-stack app (UI + API routes) |
-| Language | TypeScript |
-| Styling / UI | Tailwind CSS + shadcn/ui (semantic theme tokens, light/dark) |
-| Database | Supabase (Postgres + pgvector) |
-| Auth / Storage | Supabase Auth (GitHub + Email), Supabase Storage |
-| AI / RAG | Google Gemini 2.5 (LLM) + Gemini Embeddings, retrieval over pgvector |
-| Integrations | GitHub App, Slack App (mock data for early dev) |
-| Tooling | ESLint, Prettier |
-| Deploy | Vercel (one deployment) |
+| Area             | Technology                                    |
+| ---------------- | --------------------------------------------- |
+| Application      | Next.js 16, React 19, TypeScript              |
+| UI               | Tailwind CSS 4, shadcn/ui, Radix UI, Lucide   |
+| Database         | Supabase Postgres, Prisma ORM                 |
+| Vector search    | Supabase pgvector                             |
+| Authentication   | Supabase Auth, GitHub OAuth, email/password   |
+| File storage     | Supabase Storage                              |
+| AI               | Google Gemini 2.5 Flash, Gemini Embedding 001 |
+| Integrations     | GitHub App, GitHub REST API, Slack demo sync  |
+| Document parsing | `pdf-parse`, `mammoth`                        |
 
----
+## Repository Structure
 
-## Project Structure
-
+```text
+heap-onboarding-assistant/
+├── README.md
+└── onboardly/
+    ├── prisma/
+    │   ├── schema.prisma
+    │   └── seed.ts
+    ├── public/
+    ├── scripts/
+    └── src/
+        ├── app/
+        │   ├── (public)/           # Landing, login, registration, terms
+        │   ├── (auth)/             # Dashboard, projects, integrations
+        │   └── api/                # Chat, sync, upload, course, knowledge
+        ├── components/             # Product and UI components
+        ├── lib/                    # Auth, DB, AI, RAG, integrations
+        └── types/
 ```
-heap-onboarding-assistant/        # repo root (project meta)
-├── context/                      # specs, roadmap, workflow docs
-├── README.md                     # this file
-└── onboardly/                    # the Next.js app — run npm commands here
-    ├── src/
-    │   ├── app/
-    │   │   ├── (public)/page.tsx          # landing / welcome
-    │   │   ├── (auth)/                    # authenticated pages
-    │   │   │   ├── dashboard/page.tsx
-    │   │   │   ├── projects/…             # list, [projectId], course, chat, admin
-    │   │   │   └── integrations/page.tsx
-    │   │   └── api/                       # projects, github/sync, slack/sync,
-    │   │       └── …                      # documents/upload, knowledge/generate, chat, course/generate
-    │   ├── components/
-    │   │   ├── layout/                    # AppShell, headers, Sidebar
-    │   │   └── ui/                        # shadcn/ui primitives + EmptyState
-    │   ├── lib/
-    │   │   ├── supabase/{client,server}.ts
-    │   │   ├── ai/gemini.ts
-    │   │   ├── github/ · slack/ · documents/ · rag/ · course/
-    │   ├── types/                         # database, project, course, chat, integrations
-    │   └── data/mock/                     # projects, course, chat, knowledge
-    ├── .env.example
-    └── package.json
-```
-
----
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- A Gemini API key (for the LLM + embeddings)
-- A Supabase project (URL + keys) — optional for the initial structure scaffold, which renders without real credentials
+- Node.js 20+
+- A Supabase project with Postgres, Auth, Storage, and the `vector` extension
+- A Google Gemini API key
+- Optional: a GitHub OAuth App and GitHub App for repository workflows
 
-### Run the app
-
-The app lives in the `onboardly/` subfolder — run commands from there:
+### Installation
 
 ```bash
-cd onboardly
+git clone https://github.com/AI-Hackaton-2026/heap-onboarding-assistant.git
+cd heap-onboarding-assistant/onboardly
+
 npm install
-cp .env.example .env.local        # then fill in your keys (see below)
+cp .env.example .env.local
+```
+
+Fill in `.env.local`, then generate the Prisma client and apply the schema:
+
+```bash
+npm run db:generate
+npm run db:push
 npm run dev
 ```
 
-The app is now at `http://localhost:3000`.
+Create a private Supabase Storage bucket named `uploads` before using document
+uploads.
+
+Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment Variables
 
-Copy `.env.example` to `.env.local` and fill in:
+The complete template and GitHub App permission notes live in
+[`onboardly/.env.example`](./onboardly/.env.example).
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+| Variable                        | Purpose                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Pooled Supabase Postgres connection used at runtime.                        |
+| `DIRECT_URL`                    | Direct/session Supabase Postgres connection used by Prisma schema commands. |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL.                                                       |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anonymous key.                                              |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Server-only Supabase service role key.                                      |
+| `GEMINI_API_KEY`                | Gemini generation and embedding access.                                     |
+| `GITHUB_APP_ID`                 | Onboardly GitHub App identifier.                                            |
+| `GITHUB_APP_PRIVATE_KEY`        | Onboardly GitHub App private key.                                           |
+| `NEXT_PUBLIC_GITHUB_APP_SLUG`   | Public GitHub App slug used for install links.                              |
+| `NEXT_PUBLIC_APP_URL`           | Public application URL.                                                     |
 
-# Gemini
-GEMINI_API_KEY=
+Never commit `.env.local` or production credentials.
 
-# GitHub Integration
-GITHUB_APP_ID=
-GITHUB_APP_PRIVATE_KEY=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-GITHUB_WEBHOOK_SECRET=
+## Database Model
 
-# Slack Integration
-SLACK_CLIENT_ID=
-SLACK_CLIENT_SECRET=
-SLACK_SIGNING_SECRET=
-SLACK_BOT_TOKEN=
+The normalized schema is centered around:
 
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+- `users`, `user_identities`, and `app_roles`
+- `projects`, `project_members`, and `project_connections`
+- `documents`, `document_chunks`, and `embeddings`
+- `courses`, `modules`, `lessons`, quizzes, and progress
+- `chats`, `chat_messages`, and `message_citations`
+- `sync_jobs`
 
-> ⚠️ Never commit real API keys. `.env.local` is gitignored; only `.env.example` is tracked.
+Project access is enforced in application logic through active
+`project_members` rows. Prisma connects with elevated database access, so every
+project read and mutation must remain scoped by the app's access guards.
 
----
+## Useful Commands
 
-## API Endpoints
+Run all commands from `onboardly/`.
 
-API routes live under `src/app/api/*`. The initial scaffold ships these as placeholders (simple JSON responses) to be filled in as features land:
+| Command                | Description                                         |
+| ---------------------- | --------------------------------------------------- |
+| `npm run dev`          | Start the development server.                       |
+| `npm run build`        | Create a production build.                          |
+| `npm run lint`         | Run ESLint.                                         |
+| `npm run format:check` | Check formatting with Prettier.                     |
+| `npm run db:generate`  | Generate the Prisma client.                         |
+| `npm run db:push`      | Apply the Prisma schema to the configured database. |
+| `npm run db:studio`    | Open Prisma Studio.                                 |
+| `npm run db:seed`      | Seed configured development data.                   |
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/api/projects` | Create or list projects. |
-| `POST` | `/api/github/sync` | Sync a GitHub repo into the knowledge base. |
-| `POST` | `/api/slack/sync` | Sync a Slack workspace into the knowledge base. |
-| `POST` | `/api/documents/upload` | Upload + extract text from manual documents. |
-| `POST` | `/api/knowledge/generate` | Chunk, embed, and store the project knowledge base. |
-| `POST` | `/api/chat` | RAG answer to a question, with cited sources. |
-| `POST` | `/api/course/generate` | Generate an onboarding course (modules, lessons, checklist, quiz). |
+## Security Notes
 
-**Example — placeholder call:**
+- Keep all Supabase, Gemini, GitHub, and Slack secrets server-side.
+- Do not expose `SUPABASE_SERVICE_ROLE_KEY` or GitHub App private keys to the
+  browser.
+- Install the GitHub App only on repositories the application is allowed to
+  ingest.
+- Preserve project membership checks on every project-scoped read and mutation.
 
-```bash
-curl -X POST http://localhost:3000/api/projects \
-  -H "Content-Type: application/json" -d '{}'
-```
+## Hackathon
 
-```json
-{ "message": "Project API placeholder" }
-```
-
----
-
-## Demo Flow
-
-1. **Wizard** — enter name, role, and department → backend generates the plan as structured JSON.
-2. **Plan + Checklist** — the plan renders as a day-by-day accordion; each task has a checkbox and the progress bar updates live.
-3. **Chat** — ask free-form questions; the assistant retrieves from the knowledge base and answers with a `[Source: ...]` citation, aware of your role and progress.
-
----
-
-## Team
-
-**Heap** — 5 members.
-
-| Name | Role |
-| --- | --- |
-| _TBD_ | Backend / RAG pipeline |
-| _TBD_ | Frontend / UI |
-| _TBD_ | Integrations (Slack / GitHub) |
-| _TBD_ | Plan generation + HR view |
-| _TBD_ | Demo / presentation |
-
----
-
-## Acknowledgements
-
-Built in ~15 hours for the **FEP AI Hackathon 2026** (Jun 2–3, 2026). AI tools (Claude, Copilot) were used for brainstorming, coding assistance, and debugging — the team understands and can explain the full implementation.
+Onboardly was built by **Team Heap** for the **FEP AI Hackathon 2026**, focused
+on making employee onboarding more consistent, searchable, and useful from day
+one.
