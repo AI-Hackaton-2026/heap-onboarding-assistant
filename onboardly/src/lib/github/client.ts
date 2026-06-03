@@ -136,3 +136,45 @@ export async function installationAuthHeaders(
     "X-GitHub-Api-Version": "2022-11-28",
   };
 }
+
+/** A repo as confirmed-readable through an installation token. */
+export interface VerifiedRepo {
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+}
+
+/**
+ * Verify an installation can actually read a repo by minting an installation
+ * token and hitting GET /repos/{owner}/{repo}. Returns the repo metadata on
+ * success, or null when the token can't see the repo (404 — wrong installation
+ * or the repo isn't in scope). Throws on other errors (auth/network) so callers
+ * can distinguish "not connected" from "couldn't reach GitHub".
+ */
+export async function verifyRepoAccess(
+  owner: string,
+  repo: string,
+  installationId: string | number,
+): Promise<VerifiedRepo | null> {
+  const headers = await installationAuthHeaders(installationId);
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, { headers });
+
+  if (res.status === 404) return null; // installation can't see this repo
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to verify repo access for ${owner}/${repo} (${res.status}): ${body}`,
+    );
+  }
+
+  const data = (await res.json()) as {
+    full_name?: string;
+    private?: boolean;
+    default_branch?: string;
+  };
+  return {
+    fullName: data.full_name ?? `${owner}/${repo}`,
+    private: data.private ?? false,
+    defaultBranch: data.default_branch ?? "main",
+  };
+}

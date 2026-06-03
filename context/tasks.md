@@ -30,11 +30,11 @@
 
 ---
 
-## GitHub ingestion (finish Phase 3)
+## GitHub ingestion (finish Phase 3) URADJENO JE I OVO
 
 GitHub vertical from connection through analysis. Builds on the existing OAuth login + listing + App-auth helpers (`src/lib/github/client.ts`).
 
-- [ ] **`T-GH-1` Repo connection flow** — `TODO` — From `/integrations/github`, connect a repo to a **project** (project picker, Option A) via the GitHub App: install → capture `installation_id` → save to `integrations` row (`type=GITHUB`, `config` JSON), verify access with an installation token. Depends on Phase 2 (DONE).
+- [x] **`T-GH-1` Repo connection flow** — `DONE` — Repo selection happens at create/edit (GitHub repo picker). The project overview Connections card is now a live, admin-gated GitHub connection panel: install the App (`?state=projectId` → `/api/github/callback` persists `installation_id`), **Verify access** (installation token → `GET /repos/{owner}/{repo}` → set `project_connections.status = CONNECTED` + `connectedAt`, or `ERROR`/`DISCONNECTED` with a clear reason), and **Disconnect**. Installation id resolves live + self-heals. Verified end-to-end in the browser. (`src/lib/github/client.ts` `verifyRepoAccess`, `src/lib/projects/connection-actions.ts`, `src/components/projects/GitHubConnectionCard.tsx`.)
 - [ ] **`T-GH-2` Repo sync** — `TODO` — Fetch repo metadata / folder tree / files; ignore `node_modules`, `build`, `dist`, `coverage`, generated files. Store as `documents`. (`src/lib/github/sync.ts`, `api/github/sync`.)
 - [ ] **`T-GH-3` Repo analysis** — `TODO` — Repository Map, Folder Summaries, Architecture Summary; persist as repo-summary documents (feeds embeddings). Knowledge-graph nodes are stretch (coordinate with Knowledge owner).
 

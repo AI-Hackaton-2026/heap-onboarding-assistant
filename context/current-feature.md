@@ -1,45 +1,56 @@
-# Current Feature: Greenfield DB Rewrite
+# Current Feature: GitHub Repo Connection Flow (T-GH-1)
 
 ## Status
 
-Complete - branch `feature/db-rewrite` (off freshly synced `development`).
-Schema normalized, members feature re-pointed, create-project picker, and the
-GitHub member-discovery flow verified end-to-end in the browser. Full handoff:
-`context/features/db-rewrite-handoff.md`; review record:
-`context/features/db-rewrite-review.md`.
+Complete - branch `feature/github-repo-connection` (off freshly synced
+`development`). Task `T-GH-1` from `context/tasks.md` (finish Phase 3). Builds on
+the GitHub App auth + member-discovery work from the DB-rewrite feature.
+Verified end-to-end in the browser (connect/verify/disconnect cycle + error
+path + responsive at 390); `tsc`/lint/build pass.
 
 ## Goals
 
-Rewrite the database greenfield and reorganize the data-access layer around the
-normalized model:
+Turn the project's GitHub connection from a static read-only string into a real,
+verifiable product flow, admin-only, on the project overview Connections card:
 
-1. Drop `organizations`; projects are owned directly by `users`.
-2. Make `project_members` the only project-access path. Creator is an ACTIVE
-   `ADMIN` member and `projects.ownerId` remains the canonical creator marker.
-3. Replace `UserProfile` with generic `user_identities` for GitHub and Slack.
-4. Replace project repo/workspace columns plus `integrations` with
-   `project_connections`.
-5. Normalize knowledge into `documents -> document_chunks -> embeddings`.
-6. Normalize chat citations into `message_citations`.
-7. Add `sync_jobs` for future admin-dashboard status history.
-8. Preserve the existing members feature behavior while re-pointing its data
-   access to the new schema.
+1. **Connect / install** — from the Connections card, an admin can install the
+   Onboardly GitHub App on the project's repo owner (reusing the existing
+   `?state=projectId` install URL → `/api/github/callback` which persists
+   `installation_id`).
+2. **Verify access** — confirm the resolved installation can actually read the
+   repo (installation token → `GET /repos/{owner}/{repo}`); on success set
+   `ConnectionStatus = CONNECTED` + `connectedAt`, on failure surface a clear
+   error and leave status `ERROR`/`DISCONNECTED`.
+3. **Live status display** — replace the static repo string with live state:
+   Connected (with repo + verified time), Not installed (with install action),
+   or Error (with retry/reinstall). Slack stays read-only/TODO this slice.
+4. **Disconnect** — an admin can disconnect, clearing the installation + status.
 
 ## Notes
 
-Locked decisions from `context/features/db-rewrite-handoff.md` govern this slice.
-No data migration: reset the remote hackathon database with
-`prisma db push --force-reset`. Keep `ProjectRole = ADMIN | MEMBER`, retain the
-create-project connection selection, enforce access in app logic because Prisma
-bypasses RLS, lowercase GitHub login join keys, soft-delete members, and derive
-progress percentages rather than storing them.
-
-Create-project UX now lists GitHub OAuth repositories that are not already
-linked to a project. Selecting one populates the editable project name and
-description from repo metadata / README text. Slack organization discovery
-remains an explicit TODO until Slack OAuth lands.
+Scope decided with the user: repo *selection* stays in create/edit; this slice
+adds **verify + status + connect/disconnect actions on the overview card** (not a
+separate connect dialog). All actions are ADMIN-gated via `requireProjectAdmin`
+(Prisma bypasses RLS — enforce in app logic). Reuse existing helpers:
+`getRepoInstallationId`, `installationAuthHeaders`, `getProjectInstallationId`
+(self-healing), `saveProjectInstallationId`, `githubAppInstallUrl(projectId)`.
+Writes go to the normalized `project_connections` row (`status`, `connectedAt`,
+`installationId`). Must be fully responsive (390/768/1440) and token-themed.
 
 ## History
+
+### Greenfield DB Rewrite — Complete
+
+Done + merged to `development` + pushed (`ae24677`); branch deleted. Schema
+normalized (drop orgs, `user_identities`, `project_connections`,
+`documents→document_chunks→embeddings`, `message_citations`, `sync_jobs`),
+members feature re-pointed, create-project GitHub repo picker, and the GitHub
+member-discovery flow verified end-to-end in the browser. Also: missing
+`/api/github/callback` route built, self-healing installation resolver, DB reset
+to empty (`db:reset-data`) with a guarded seed, `Administration: Read` +
+per-owner-install requirements documented, and the theme-init React 19 warning
+fixed via `useServerInsertedHTML`. Full handoff:
+`context/features/db-rewrite-handoff.md`; review: `context/features/db-rewrite-review.md`.
 
 ### DB Rewrite — Review, GitHub Discovery Fixes & Data Reset
 

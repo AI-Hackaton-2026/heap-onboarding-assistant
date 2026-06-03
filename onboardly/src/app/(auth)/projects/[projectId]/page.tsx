@@ -16,9 +16,18 @@ import { Button } from "@/components/ui/button";
 import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
 import { RoleBadge } from "@/components/members/RoleBadge";
+import { GitHubConnectionCard } from "@/components/projects/GitHubConnectionCard";
 import { getProjectAccess } from "@/lib/members/access";
-import { getProjectConnectionRefs } from "@/lib/projects/connections";
-import { ProjectRole } from "@/generated/prisma/enums";
+import {
+  getProjectConnection,
+  getProjectConnectionRefs,
+} from "@/lib/projects/connections";
+import { githubAppInstallUrl } from "@/lib/github/oauth";
+import {
+  ProjectRole,
+  Provider,
+  ConnectionStatus,
+} from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +44,10 @@ export default async function ProjectOverviewPage({
   const { project, role } = access;
   const isAdmin = role === ProjectRole.ADMIN;
   const connections = await getProjectConnectionRefs(project.id);
+  const githubConnection = await getProjectConnection(
+    project.id,
+    Provider.GITHUB,
+  );
 
   const sections = [
     {
@@ -101,15 +114,17 @@ export default async function ProjectOverviewPage({
             Sources this project&apos;s knowledge base is built from.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground text-xs font-medium uppercase">
-              GitHub repo
-            </p>
-            <p className="text-sm">
-              {connections.githubRepo ?? "Not connected"}
-            </p>
-          </div>
+        <CardContent className="space-y-6">
+          <GitHubConnectionCard
+            projectId={project.id}
+            repo={connections.githubRepo}
+            status={
+              githubConnection?.status ?? ConnectionStatus.DISCONNECTED
+            }
+            connectedAt={githubConnection?.connectedAt?.toISOString() ?? null}
+            canManage={isAdmin}
+            installAppUrl={githubAppInstallUrl(project.id)}
+          />
           <div>
             <p className="text-muted-foreground text-xs font-medium uppercase">
               Slack workspace
