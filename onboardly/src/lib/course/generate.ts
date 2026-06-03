@@ -45,39 +45,19 @@ ${repoContext}
 
 Generate a comprehensive onboarding course for a "${roleName}" joining this project. Help them understand the codebase, architecture, and workflows.
 
-Return ONLY valid JSON with this exact structure — no markdown fences, no explanation outside the JSON:
-{
-  "roleName": "${roleName}",
-  "estimatedDuration": "<e.g. ~4 hours>",
-  "modules": [
-    {
-      "title": "<module title>",
-      "description": "<1-2 sentence summary>",
-      "lessons": [
-        {
-          "title": "<lesson title>",
-          "content": "<rich Markdown with ## headings, prose, and code blocks — minimum 200 words>",
-          "checklist": ["<actionable hands-on task 1>", "<actionable hands-on task 2>"],
-          "quiz": [
-            {
-              "question": "<specific question about this lesson>",
-              "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
-              "correctIndex": 0
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+Return a JSON object with this shape:
+- roleName: string
+- estimatedDuration: string (e.g. "~4 hours")
+- modules: array of 3-5 modules, each with:
+  - title: string
+  - description: string (1-2 sentences)
+  - lessons: array of 2-4 lessons, each with:
+    - title: string
+    - content: string (rich Markdown, ## headings, prose, code blocks — minimum 200 words)
+    - checklist: string[] (2-4 hands-on tasks: clone, run a command, read a file, etc.)
+    - quiz: array of exactly 1 object with: question, options (4 strings), correctIndex (0-3)
 
-Requirements:
-- 3-5 modules, each with 2-4 lessons
-- Each lesson's content must be substantial Markdown with headings, explanations, and code examples where relevant
-- Checklist tasks must be hands-on (clone the repo, run a command, read a specific file, etc.)
-- Each lesson has exactly 1 quiz question with 4 options and the correct answer index (0-3)
-- Base all content on the actual repository files provided — do not invent functionality
-- Return ONLY the JSON object`;
+Base all content on the actual repository files provided. Do not invent functionality.`;
 }
 
 function addIds(raw: RawCourse): Course {
@@ -123,20 +103,16 @@ export async function generateCourse(
     contents: prompt,
     config: {
       temperature: 0.4,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 16384,
+      responseMimeType: "application/json",
     },
   });
 
   const text = response.text ?? "";
-  // Strip accidental markdown code fences
-  const json = text
-    .replace(/^```(?:json)?\s*/m, "")
-    .replace(/\s*```\s*$/m, "")
-    .trim();
 
   let parsed: RawCourse;
   try {
-    parsed = JSON.parse(json) as RawCourse;
+    parsed = JSON.parse(text) as RawCourse;
   } catch {
     throw new Error(`Gemini returned invalid JSON. Preview: ${text.slice(0, 300)}`);
   }
