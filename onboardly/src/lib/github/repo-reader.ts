@@ -34,9 +34,9 @@ const INCLUDED_EXTENSIONS = new Set([
   ".sh",
 ]);
 
-const MAX_FILES = 50;
-const MAX_TOTAL_BYTES = 100_000;
-const MAX_FILE_BYTES = 30_000;
+const MAX_FILES = 20;
+const MAX_TOTAL_BYTES = 40_000;
+const MAX_FILE_BYTES = 8_000;
 
 interface TreeItem {
   path: string;

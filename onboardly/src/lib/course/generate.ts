@@ -47,14 +47,14 @@ Generate a comprehensive onboarding course for a "${roleName}" joining this proj
 
 Return a JSON object with this shape:
 - roleName: string
-- estimatedDuration: string (e.g. "~4 hours")
-- modules: array of 3-5 modules, each with:
+- estimatedDuration: string (e.g. "~3 hours")
+- modules: array of exactly 3 modules, each with:
   - title: string
-  - description: string (1-2 sentences)
-  - lessons: array of 2-4 lessons, each with:
+  - description: string (1 sentence)
+  - lessons: array of exactly 2 lessons, each with:
     - title: string
-    - content: string (rich Markdown, ## headings, prose, code blocks — minimum 200 words)
-    - checklist: string[] (2-4 hands-on tasks: clone, run a command, read a file, etc.)
+    - content: string (Markdown with 1-2 ## sections and brief prose — 80-120 words)
+    - checklist: string[] (exactly 2 hands-on tasks)
     - quiz: array of exactly 1 object with: question, options (4 strings), correctIndex (0-3)
 
 Base all content on the actual repository files provided. Do not invent functionality.`;
@@ -73,16 +73,16 @@ function addIds(raw: RawCourse): Course {
         id: crypto.randomUUID(),
         title: l.title,
         content: l.content,
-        checklist: l.checklist.map((text): ChecklistItem => ({
+        checklist: (Array.isArray(l.checklist) ? l.checklist : []).map((text): ChecklistItem => ({
           id: crypto.randomUUID(),
           text,
           done: false,
         })),
-        quiz: l.quiz.map((q): QuizQuestion => ({
+        quiz: (Array.isArray(l.quiz) ? l.quiz : l.quiz ? [l.quiz] : []).map((q): QuizQuestion => ({
           id: crypto.randomUUID(),
           question: q.question,
-          options: q.options,
-          correctIndex: q.correctIndex,
+          options: Array.isArray(q.options) ? q.options : [],
+          correctIndex: q.correctIndex ?? 0,
         })),
       })),
     })),
@@ -103,7 +103,7 @@ export async function generateCourse(
     contents: prompt,
     config: {
       temperature: 0.4,
-      maxOutputTokens: 16384,
+      maxOutputTokens: 32768,
       responseMimeType: "application/json",
     },
   });
