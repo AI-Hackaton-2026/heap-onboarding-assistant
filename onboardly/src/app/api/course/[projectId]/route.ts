@@ -47,11 +47,21 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await params;
+
+  const access = await requireProjectAdmin(projectId);
+  if (!access) {
+    return Response.json(
+      { error: "Only project admins can delete the course." },
+      { status: 403 },
+    );
+  }
+
   try {
     await deleteCourseFromDb(projectId);
     return Response.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Delete failed";
+    console.error("[course/DELETE]", message);
     return Response.json({ error: message }, { status: 500 });
   }
 }

@@ -1,11 +1,17 @@
 // POST /api/course/generate
 // Accepts { projectId, roleName, githubRepo }, fetches document chunks,
 // runs the Gemini course generator, saves to DB, and returns the course JSON.
+//
+// Generating persists one course per project (overwriting any existing one), so
+// it's an admin-only setup action — gated by requireProjectAdmin.
 
 import { NextRequest } from "next/server";
 import { generateCourse } from "@/lib/course/generate";
 import { saveCourseToDb } from "@/lib/course/db";
 import { fetchProjectChunks } from "@/lib/course/chunks";
+import { requireProjectAdmin } from "@/lib/members/access";
+
+const MAX_ROLE_LENGTH = 100;
 
 interface GenerateRequest {
   projectId?: string;
@@ -23,25 +29,38 @@ export async function POST(req: NextRequest) {
 
   const { projectId, roleName, githubRepo } = body;
 
+  if (!projectId?.trim()) {
+    return Response.json({ error: "projectId is required" }, { status: 400 });
+  }
   if (!roleName?.trim()) {
     return Response.json({ error: "roleName is required" }, { status: 400 });
   }
+  if (roleName.trim().length > MAX_ROLE_LENGTH) {
+    return Response.json(
+      { error: `roleName must be ${MAX_ROLE_LENGTH} characters or fewer` },
+      { status: 400 },
+    );
+  }
+
+  const access = await requireProjectAdmin(projectId);
+  if (!access) {
+    return Response.json(
+      { error: "Only project admins can generate the course." },
+      { status: 403 },
+    );
+  }
 
   try {
-    const docsContext = projectId
-      ? await fetchProjectChunks(projectId)
-      : undefined;
+    const docsContext = await fetchProjectChunks(projectId);
 
     const course = await generateCourse(
-      projectId ?? "",
+      projectId,
       roleName.trim(),
       githubRepo?.trim() || undefined,
       docsContext || undefined,
     );
 
-    if (projectId) {
-      await saveCourseToDb(projectId, course);
-    }
+    await saveCourseToDb(projectId, course);
 
     return Response.json(course);
   } catch (err) {

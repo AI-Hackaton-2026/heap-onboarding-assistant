@@ -204,6 +204,32 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
   );
 }
 
+// ── Non-admin empty state ───────────────────────────────────────────────────
+
+function CourseNotReady() {
+  return (
+    <div className="mx-auto flex min-h-[60vh] max-w-6xl flex-col gap-6">
+      <PageHeader
+        title="Onboarding course"
+        subtitle="Your guided learning path for this project."
+        icon={BookOpen}
+      />
+      <Card className="mx-auto w-full max-w-lg shadow-sm">
+        <CardContent className="space-y-3 py-10 text-center">
+          <div className="bg-primary/10 mx-auto flex size-12 items-center justify-center rounded-2xl">
+            <BookOpen className="text-primary h-6 w-6" />
+          </div>
+          <h2 className="font-heading text-xl font-semibold">No course yet</h2>
+          <p className="text-muted-foreground text-sm">
+            A project admin hasn&apos;t generated the onboarding course for this
+            project yet. Check back once it&apos;s ready.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Course Sidebar ────────────────────────────────────────────────────────────
 
 interface CourseSidebarProps {
@@ -856,23 +882,33 @@ export function CoursePlayer({
   isAdmin = false,
 }: CoursePlayerProps) {
   const router = useRouter();
-  const [course, setCourse] = useState<Course | null>(() => {
-    if (initialCourse) return initialCourse;
-    if (typeof window !== "undefined") return loadCourseFromStorage(projectId);
-    return null;
-  });
+  // Initialize from the server-provided course only, so SSR and the first client
+  // render match. The localStorage fallback is applied after mount below.
+  const [course, setCourse] = useState<Course | null>(initialCourse ?? null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [currentModuleIdx, setCurrentModuleIdx] = useState(0);
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    const saved = initialCourse ?? loadCourseFromStorage(projectId);
-    return saved ? loadProgressFromStorage(saved.id) : new Set();
-  });
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(
+    new Set(),
+  );
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+
+  // Hydrate from localStorage after mount (prevents SSR/client mismatch). Only a
+  // fallback when the DB has no saved course for this project. Setting state here
+  // is intentional — it must run post-mount, not during the initial render.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (initialCourse) return;
+    const cached = loadCourseFromStorage(projectId);
+    if (cached) {
+      setCourse(cached);
+      setCompletedLessons(loadProgressFromStorage(cached.id));
+    }
+  }, [initialCourse, projectId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist course content to localStorage whenever it changes
   useEffect(() => {
@@ -911,7 +947,14 @@ export function CoursePlayer({
   }, [course, completedLessons]);
 
   const resetCourse = useCallback(async () => {
-    await fetch(`/api/course/${projectId}`, { method: "DELETE" });
+    const res = await fetch(`/api/course/${projectId}`, { method: "DELETE" });
+    // Don't tear down the local view if the server rejected the delete —
+    // otherwise the user is dropped into a generate form they can't use.
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setSaveError(data.error ?? "Could not regenerate the course.");
+      return;
+    }
     localStorage.removeItem(COURSE_STORAGE_KEY(projectId));
     if (course) localStorage.removeItem(PROGRESS_STORAGE_KEY(course.id));
     setCourse(null);
@@ -1020,6 +1063,9 @@ export function CoursePlayer({
   );
 
   if (!course) {
+    if (!isAdmin) {
+      return <CourseNotReady />;
+    }
     return (
       <GenerateForm
         projectId={projectId}
@@ -1103,23 +1149,25 @@ export function CoursePlayer({
             </span>
             <div className="flex items-center gap-2">
               {isAdmin && (
-                <button
-                  onClick={() => {
-                    setSaveError(null);
-                    setEditing(true);
-                  }}
-                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] underline-offset-2 hover:underline"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edit
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setSaveError(null);
+                      setEditing(true);
+                    }}
+                    className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] underline-offset-2 hover:underline"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={resetCourse}
+                    className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
+                  >
+                    Regenerate
+                  </button>
+                </>
               )}
-              <button
-                onClick={resetCourse}
-                className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
-              >
-                Regenerate
-              </button>
             </div>
           </div>
 
