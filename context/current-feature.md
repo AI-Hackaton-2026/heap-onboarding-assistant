@@ -1,27 +1,52 @@
-# Current Feature: Course Progress — DB Persistence & Completion Page
+# Current Feature
 
 ## Status
 
-In Progress
+<!-- Not Started | In Progress | Complete -->
 
 ## Goals
 
-- **DB progress saving** — when a user completes a lesson, upsert a `LessonProgress` row (status = COMPLETED) for their `ProjectMember` record; auto-create the `ProjectMember` if they don't have one yet.
-- **Frontend hydration** — on course load, fetch completed lesson IDs from DB and hydrate `completedLessons` state; localStorage stays as the in-session fallback for checklist/quiz answers within a lesson.
-- **Course completion flow** — when the user completes the last lesson, navigate to `/projects/[projectId]/course/completed`; that page shows a success message and gives two options: **Overview** (`/dashboard`) and **Ask Onboardly** (project chat at `/projects/[projectId]/chat`).
+<!-- Populated by /feature load -->
 
 ## Notes
 
-- `LessonProgress` already exists in the schema: `lessonId`, `memberId`, `status (ProgressStatus)`, `completedAt`.
-- `ProgressStatus` enum: `NOT_STARTED | IN_PROGRESS | COMPLETED`.
-- `ProjectMember` is keyed by `(projectId, userId)` — use `upsert` to auto-create on first progress save.
-- API: `GET /api/course/[projectId]/progress` → `{ completedLessonIds: string[] }` for the current user.
-- API: `POST /api/course/[projectId]/progress` → body `{ lessonId }`, marks lesson COMPLETED.
-- In `CoursePlayer`: on course mount, call GET progress and hydrate state. In `goNext`, call POST for the completed lesson. On last lesson complete, `router.push` to the completed page.
-- Completion page is a static server component — no DB calls needed (state already saved).
-- Branch: `feature/course-progress-db`
+<!-- Populated by /feature load -->
 
 ## History
+
+### Data Wiring — Replace Mock/Stub Content With Live Data — Complete
+
+Done + committed on branch `feature/data-wiring` (off `development` @ `e4f5038`).
+Wired all five authenticated surfaces to live data aggregated **across every
+project the user is an ACTIVE member of** (locked decision: cross-project
+rollup, everything in one branch). `next lint` + `next build` pass (0 errors).
+
+- **Aggregation lib (new):** `src/lib/dashboard/overview.ts`
+  (`getOverviewData()` + `getPlanData()` — per-user progress %, focus/timeline
+  lessons, recommended reads, recent-activity feed, full plan grouped per
+  project), `src/lib/documents/aggregate.ts` (`listAccessibleDocuments()` —
+  paginated docs across projects), `src/types/overview.ts`. All access-guarded
+  via `listAccessibleProjects()` (tenant isolation in app logic; Prisma bypasses
+  RLS). Course ordering uses `Course.createdAt` (no `position` field on Course).
+- **Sidebar:** Overview on top alone → **Workspace** (Projects / Repositories /
+  Integrations) → new **Onboarding** section (My Plan / Resources / AI Assistant
+  / Settings) beneath Workspace.
+- **Overview:** live rollup + prominent Projects CTA; empty states for
+  no-projects / no-course. Dropped the mock-only `UpcomingCard` (no real data
+  source). `force-dynamic`.
+- **My Plan:** full plan grouped per project, each with its own progress bar +
+  lessons linking into the course player.
+- **Resources:** all accessible docs grouped by project, paginated, read-only
+  (download enabled), reusing `DocumentRow` via new `ResourcesList`.
+- **AI Assistant:** project-picker → existing `POST /api/chat` RAG flow with
+  citations; switching project resets the conversation (`AssistantClient`).
+- **Settings:** editable display name (server action syncs Supabase
+  `user_metadata` + `User` row); email + GitHub login read-only (`ProfileForm`,
+  `src/lib/auth/settings-actions.ts`).
+- **Fixed:** runtime `Course.position` PrismaClientValidationError (Course has
+  no position field) → order courses by `createdAt`.
+
+Full spec: `context/features/data-wiring.md`.
 
 ### Course Generation — Auto Repo, Embeddings Context & DB Persistence — Complete
 
