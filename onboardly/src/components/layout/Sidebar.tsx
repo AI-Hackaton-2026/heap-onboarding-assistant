@@ -1,7 +1,7 @@
-// Sidebar navigation for the authenticated app. Primary nav mirrors the
-// new-hire onboarding overview (Overview / My Plan / Resources / AI Assistant /
-// Settings); a Workspace section keeps the earlier Projects/Integrations
-// surfaces reachable. Active item is highlighted from the current path.
+// Sidebar navigation for the authenticated app. Overview sits at the top on its
+// own; the Workspace section (Projects / Repositories / Integrations) follows;
+// and the onboarding surfaces (My Plan / Resources / AI Assistant / Settings)
+// sit below Workspace. Active item is highlighted from the current path.
 
 "use client";
 
@@ -29,18 +29,24 @@ interface NavItem {
   icon: LucideIcon;
 }
 
+// Overview leads the sidebar on its own.
 const primaryNav: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
-  { href: "/dashboard/plan", label: "My Plan", icon: ListChecks },
-  { href: "/dashboard/resources", label: "Resources", icon: BookOpen },
-  { href: "/dashboard/assistant", label: "AI Assistant", icon: Sparkles },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+// Workspace surfaces come next.
 const workspaceNav: NavItem[] = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/integrations/github", label: "Repositories", icon: FolderGit2 },
   { href: "/integrations", label: "Integrations", icon: Puzzle },
+];
+
+// Onboarding surfaces sit below the Workspace section.
+const onboardingNav: NavItem[] = [
+  { href: "/dashboard/plan", label: "My Plan", icon: ListChecks },
+  { href: "/dashboard/resources", label: "Resources", icon: BookOpen },
+  { href: "/dashboard/assistant", label: "AI Assistant", icon: Sparkles },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -129,6 +135,20 @@ export function Sidebar({
       </p>
       <nav className="flex flex-col gap-1">
         {workspaceNav.map((item) => (
+          <NavLink
+            key={item.href}
+            item={item}
+            active={isActive(pathname, item.href)}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </nav>
+
+      <p className="text-sidebar-foreground/50 mt-6 mb-1 px-3 text-xs font-medium tracking-wide uppercase">
+        Onboarding
+      </p>
+      <nav className="flex flex-col gap-1">
+        {onboardingNav.map((item) => (
           <NavLink
             key={item.href}
             item={item}
