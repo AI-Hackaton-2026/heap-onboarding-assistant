@@ -38,20 +38,29 @@ interface RawCourse {
 
 function buildPrompt(
   roleName: string,
-  repoContext: string,
+  repoContext?: string,
   docsContext?: string,
 ): string {
-  const docsSection = docsContext
-    ? `${docsContext}\n\n---\n\n`
+  const contextSections: string[] = [];
+
+  if (docsContext) {
+    contextSections.push(`## Company Documents\n\n${docsContext}`);
+  }
+  if (repoContext) {
+    contextSections.push(`## GitHub Repository\n\n${repoContext}`);
+  }
+
+  const contextBlock = contextSections.length > 0
+    ? `Here is the knowledge base for this organisation:\n\n${contextSections.join("\n\n---\n\n")}\n\n`
     : "";
 
-  return `You are an expert technical trainer creating an onboarding course for a new ${roleName}.
-${docsSection}
-Below is content from the GitHub repository this person will work with:
+  const instruction = repoContext
+    ? `Help them understand the codebase, architecture, and workflows.`
+    : `Help them understand the company, their role, key processes, and how to succeed in their first weeks.`;
 
-${repoContext}
+  return `You are an expert onboarding specialist creating a personalised onboarding course for a new ${roleName}.
 
-Generate a comprehensive onboarding course for a "${roleName}" joining this project. Help them understand the codebase, architecture, and workflows.
+${contextBlock}Generate a comprehensive onboarding course for a "${roleName}" joining this organisation. ${instruction}
 
 Return a JSON object with this shape:
 - roleName: string
@@ -65,7 +74,7 @@ Return a JSON object with this shape:
     - checklist: string[] (exactly 2 hands-on tasks)
     - quiz: array of exactly 1 object with: question, options (4 strings), correctIndex (0-3)
 
-Base all content on the actual repository files provided. Do not invent functionality.`;
+${contextSections.length > 0 ? "Base all content on the provided knowledge. Do not invent information." : "Generate practical, role-specific content based on your expertise."}`;
 }
 
 function addIds(raw: RawCourse): Course {
@@ -100,10 +109,12 @@ function addIds(raw: RawCourse): Course {
 export async function generateCourse(
   _projectId: string,
   roleName: string,
-  githubRepo: string,
+  githubRepo?: string,
   docsContext?: string,
 ): Promise<Course> {
-  const repoContext = await fetchRepoContext(githubRepo);
+  const repoContext = githubRepo?.trim()
+    ? await fetchRepoContext(githubRepo.trim())
+    : undefined;
   const prompt = buildPrompt(roleName, repoContext, docsContext);
 
   const gemini = getGemini();

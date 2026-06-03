@@ -58,7 +58,7 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
     <div className="mx-auto flex min-h-[60vh] max-w-6xl flex-col gap-6">
       <PageHeader
         title="Onboarding course"
-        subtitle="Generate a guided learning path grounded in this project's repository."
+        subtitle="Generate a guided learning path personalised for your role."
         icon={BookOpen}
       />
       <Card className="mx-auto w-full max-w-lg shadow-sm">
@@ -71,8 +71,8 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
               Generate your onboarding course
             </h2>
             <p className="text-muted-foreground text-sm">
-              Gemini reads your GitHub repo and builds a personalised course for
-              your role.
+              Gemini uses your company&apos;s knowledge base to build a
+              personalised course for your role.
             </p>
           </div>
 
@@ -92,17 +92,18 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="repo-input">
-                GitHub repository
+                GitHub repository{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Input
                 id="repo-input"
-                placeholder="owner/repo"
+                placeholder="owner/repo — leave blank to use uploaded docs only"
                 value={repo}
                 onChange={(e) => setRepo(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && generate()}
               />
               <p className="text-muted-foreground text-xs">
-                Format: owner/repo
+                Leave blank if your knowledge base comes from uploaded documents.
               </p>
             </div>
 
@@ -111,7 +112,7 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
             <Button
               className="w-full"
               onClick={generate}
-              disabled={loading || !role.trim() || !repo.trim()}
+              disabled={loading || !role.trim()}
             >
               {loading ? (
                 <>
@@ -128,8 +129,7 @@ function GenerateForm({ projectId, initialRepo, onCourseReady }: GenerateFormPro
 
             {loading && (
               <p className="text-muted-foreground text-center text-xs">
-                Reading the repo and generating your course — this takes ~20–40
-                s
+                Generating your course from the knowledge base — this takes ~20–40s
               </p>
             )}
           </div>

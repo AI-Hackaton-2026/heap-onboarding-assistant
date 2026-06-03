@@ -10,7 +10,7 @@ import { fetchProjectChunks } from "@/lib/course/chunks";
 interface GenerateRequest {
   projectId?: string;
   roleName: string;
-  githubRepo: string;
+  githubRepo?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -26,9 +26,6 @@ export async function POST(req: NextRequest) {
   if (!roleName?.trim()) {
     return Response.json({ error: "roleName is required" }, { status: 400 });
   }
-  if (!githubRepo?.trim()) {
-    return Response.json({ error: "githubRepo is required" }, { status: 400 });
-  }
 
   try {
     const docsContext = projectId
@@ -38,7 +35,7 @@ export async function POST(req: NextRequest) {
     const course = await generateCourse(
       projectId ?? "",
       roleName.trim(),
-      githubRepo.trim(),
+      githubRepo?.trim() || undefined,
       docsContext || undefined,
     );
 
