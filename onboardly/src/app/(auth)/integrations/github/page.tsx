@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RepositoriesView } from "@/components/integrations/RepositoriesView";
 import { createClient } from "@/lib/supabase/server";
+import { signInWithGitHub } from "@/lib/auth/actions";
 import { FolderGit2, Plus } from "lucide-react";
 import {
   GH_PROVIDER_TOKEN_COOKIE,
@@ -18,6 +19,17 @@ import {
 } from "@/lib/github/oauth";
 
 export const dynamic = "force-dynamic";
+
+// Re-triggers GitHub OAuth in place (no sign-out needed). Used when the GitHub
+// user token is missing/expired while the app session is still active.
+function ReconnectGitHubButton({ label }: { label: string }) {
+  return (
+    <form action={signInWithGitHub}>
+      <input type="hidden" name="redirectTo" value="/integrations/github" />
+      <Button type="submit">{label}</Button>
+    </form>
+  );
+}
 
 export default async function GitHubReposPage() {
   const token = (await cookies()).get(GH_PROVIDER_TOKEN_COOKIE)?.value;
@@ -31,14 +43,8 @@ export default async function GitHubReposPage() {
         <EmptyState
           icon={FolderGit2}
           title="GitHub not connected"
-          description="Sign in with GitHub to list your repositories. If you signed in with email, log out and choose “Continue with GitHub”."
-          action={
-            <Button asChild>
-              <Link href="/login?redirectTo=/integrations/github">
-                Connect GitHub
-              </Link>
-            </Button>
-          }
+          description="Connect your GitHub account to list your repositories. If you signed in with email, this will link GitHub to your session."
+          action={<ReconnectGitHubButton label="Connect GitHub" />}
         />
       </div>
     );
@@ -55,13 +61,7 @@ export default async function GitHubReposPage() {
           icon={FolderGit2}
           title="Couldn’t load your repositories"
           description="Your GitHub session may have expired. Reconnect with GitHub and try again."
-          action={
-            <Button asChild>
-              <Link href="/login?redirectTo=/integrations/github">
-                Reconnect GitHub
-              </Link>
-            </Button>
-          }
+          action={<ReconnectGitHubButton label="Reconnect GitHub" />}
         />
       </div>
     );
