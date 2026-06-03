@@ -1,7 +1,5 @@
-// Placeholder text chunking helper.
-// Future responsibility: split parsed document text into overlapping chunks
-// sized for embedding, carrying a source label through for citations.
-
-export function chunkText(_text: string): string[] {
-  throw new Error("Chunking not implemented yet");
-}
+// Re-export from the canonical chunker in src/lib/documents/chunk.ts.
+// The RAG pipeline uses document chunks created at upload time, so there is no
+// separate chunking step here.
+export { chunkText } from "@/lib/documents/chunk";
+export type { TextChunk } from "@/lib/documents/chunk";

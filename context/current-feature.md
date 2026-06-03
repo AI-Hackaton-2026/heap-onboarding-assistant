@@ -1,16 +1,37 @@
-# Current Feature: Gemini Course Generator + Academy UI
+# Current Feature: Embeddings + Retrieval (T-EMB-1 + T-EMB-2)
 
 ## Status
 
-No active feature.
+In Progress
 
 ## Goals
 
-_None — set on the next `/feature load`._
+- All `DocumentChunk` rows for a project can be embedded on demand (admin-triggered)
+- Each chunk's 768-dim Gemini vector is stored in the `embeddings` table via pgvector
+- Embedding runs in batches (max 50 chunks/request) to respect Gemini API limits
+- Already-embedded chunks are skipped (idempotent re-run)
+- A "Generate embeddings" button on the Documents page triggers the pipeline; progress is reported
+- Similarity search (`<=>`) returns top-k chunks with `content` + `citation` label for RAG use
+- `npm run lint` + `npm run build` pass with 0 errors
 
 ## Notes
 
-_None._
+- **No schema changes** — `embeddings` table (`chunk_id PK`, `embedding vector(768)`) already exists
+- **Raw SQL for writes** — Prisma marks `embedding` as `Unsupported("vector(768)")`, so inserts use `prisma.$executeRaw` with `::vector` cast and `ON CONFLICT DO UPDATE`
+- **Batch size 50** — Gemini `embedContent` accepts multiple texts; keep batches small to avoid token limits and rate errors
+- **Idempotent** — re-running only processes chunks that have no row in `embeddings` yet; safe to call multiple times
+- **T-EMB-2 retrieval is already scaffolded** in `src/lib/rag/search.ts` (`searchKnowledge`) — just needs to be wired and verified
+- Fix the `src/lib/rag/chunk.ts` placeholder (re-export from `src/lib/documents/chunk.ts`)
+- Admin-gated trigger via `/api/knowledge/generate` route (already a stub)
+
+## Files
+
+- `src/lib/rag/pipeline.ts` *(new)* — `embedProjectChunks(projectId)` batch embedding pipeline
+- `src/lib/rag/chunk.ts` *(fix placeholder)* — re-export `chunkText` from documents/chunk
+- `src/lib/rag/search.ts` *(already scaffolded — verify + minor fixes if needed)*
+- `src/app/api/knowledge/generate/route.ts` *(stub → wire)* — POST `{projectId}`, admin-gated
+- `src/components/documents/EmbedButton.tsx` *(new)* — admin trigger button with progress feedback
+- Update `src/app/(auth)/projects/[projectId]/documents/page.tsx` — add EmbedButton for admins
 
 ## History
 
