@@ -10,6 +10,12 @@ import { Search, Bell, X } from "lucide-react";
 import { AppIcon } from "@/components/layout/AppIcon";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpButton } from "@/components/onboarding/HelpButton";
 import { UserMenu } from "./UserMenu";
 import { MobileNav } from "./MobileNav";
 
@@ -65,7 +71,7 @@ export function AuthHeader({ email, avatarUrl, displayName }: AuthHeaderProps) {
 
       <div className="flex min-w-0 flex-1 items-center px-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3">
-          <div className="hidden w-full max-w-md md:block">
+          <div className="hidden w-full max-w-md md:block" data-tour="search">
             {searchOpen ? (
               <form onSubmit={handleSearchSubmit} className="relative">
                 <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -100,14 +106,35 @@ export function AuthHeader({ email, avatarUrl, displayName }: AuthHeaderProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <Button asChild size="sm" className="hidden sm:inline-flex">
+            <Button
+              asChild
+              size="sm"
+              className="hidden sm:inline-flex"
+              data-tour="tasks"
+            >
               <Link href="/dashboard/plan">Open today&apos;s tasks</Link>
             </Button>
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-              <Bell />
-              <span className="bg-primary absolute top-1.5 right-1.5 size-1.5 rounded-full" aria-hidden />
-            </Button>
+            <span data-tour="theme" className="inline-flex">
+              <ThemeToggle />
+            </span>
+            <HelpButton />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Notifications"
+                  className="relative"
+                >
+                  <Bell />
+                  <span
+                    className="bg-primary absolute top-1.5 right-1.5 size-1.5 rounded-full"
+                    aria-hidden
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Notifications</TooltipContent>
+            </Tooltip>
             <div className="hidden sm:block md:hidden">
               <UserMenu email={email} avatarUrl={avatarUrl} displayName={displayName} />
             </div>

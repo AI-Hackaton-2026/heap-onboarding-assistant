@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import { AuthHeader } from "./AuthHeader";
 import { Sidebar } from "./Sidebar";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { createClient } from "@/lib/supabase/server";
 
 /** Read a string field from the Supabase user_metadata, or null when absent. */
@@ -28,22 +29,24 @@ export async function AppShell({ children }: { children: ReactNode }) {
     metaString(metadata, "name") ?? metaString(metadata, "full_name");
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <AuthHeader
-        email={email}
-        avatarUrl={avatarUrl}
-        displayName={displayName}
-      />
-      <div className="flex min-h-0 flex-1">
-        <Sidebar
+    <OnboardingProvider>
+      <div className="flex h-screen flex-col overflow-hidden">
+        <AuthHeader
           email={email}
           avatarUrl={avatarUrl}
           displayName={displayName}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-          {children}
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <Sidebar
+            email={email}
+            avatarUrl={avatarUrl}
+            displayName={displayName}
+          />
+          <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </OnboardingProvider>
   );
 }

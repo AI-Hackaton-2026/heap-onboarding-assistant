@@ -3,6 +3,7 @@ import "./globals.css";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -32,8 +33,10 @@ export default function RootLayout({
           useServerInsertedHTML — see src/components/theme/ThemeProvider.tsx. */}
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider>
-          {children}
-          <Toaster richColors position="bottom-right" />
+          <TooltipProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

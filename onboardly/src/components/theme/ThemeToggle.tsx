@@ -9,6 +9,11 @@
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTheme } from "@/components/theme/ThemeProvider";
 
 const emptySubscribe = () => () => {};
@@ -35,14 +40,18 @@ export function ThemeToggle() {
       : "Switch to dark mode";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={toggleTheme}
-      aria-label={label}
-      title={label}
-    >
-      {hydrated && isDark ? <Moon /> : <Sun />}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleTheme}
+          aria-label={label}
+        >
+          {hydrated && isDark ? <Moon /> : <Sun />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
