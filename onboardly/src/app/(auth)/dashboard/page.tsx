@@ -1,68 +1,38 @@
-// Main authenticated dashboard — every project where the user has an ACTIVE
-// membership, each tagged with their project role.
+// New-hire dashboard — the onboarding overview a new hire lands on after login.
+// Composed of reusable card components driven by placeholder/mock data this
+// slice (no DB reads). The project list moved to /projects.
 
-import Link from "next/link";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
-import { RoleBadge } from "@/components/members/RoleBadge";
-import { listAccessibleProjects } from "@/lib/members/queries";
+import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
+import { TodaysFocusCard } from "@/components/dashboard/TodaysFocusCard";
+import { OnboardingProgressCard } from "@/components/dashboard/OnboardingProgressCard";
+import { UpcomingCard } from "@/components/dashboard/UpcomingCard";
+import { RecommendedReadsCard } from "@/components/dashboard/RecommendedReadsCard";
+import { AskOnboardlyCard } from "@/components/dashboard/AskOnboardlyCard";
+import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
+import { mockDashboard } from "@/data/mock/dashboard";
 
-export const dynamic = "force-dynamic";
-
-export default async function DashboardPage() {
-  const projects = await listAccessibleProjects();
+export default function DashboardPage() {
+  const data = mockDashboard;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">
-            Your onboarding projects.
-          </p>
-        </div>
-        <Button asChild size="sm">
-          <Link href="/projects/new">New project</Link>
-        </Button>
+    <div className="mx-auto flex max-w-6xl flex-col gap-5 sm:gap-6">
+      <WelcomeBanner
+        userName={data.userName}
+        progressPercent={data.progressPercent}
+      />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 sm:gap-6">
+        <TodaysFocusCard tasks={data.todaysFocus} />
+        <OnboardingProgressCard steps={data.onboardingSteps} />
       </div>
 
-      {projects.length === 0 ? (
-        <EmptyState
-          title="No projects yet"
-          description="Create a project to connect a repo, sync Slack, and build its knowledge base."
-          action={
-            <Button asChild>
-              <Link href="/projects/new">Create your first project</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map(({ project, role }) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>{project.name}</CardTitle>
-                  <CardDescription className="line-clamp-2">
-                    {project.description ?? "No description yet."}
-                  </CardDescription>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <ProjectStatusBadge status={project.status} />
-                    <RoleBadge role={role} />
-                  </div>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
+        <UpcomingCard events={data.upcoming} />
+        <RecommendedReadsCard reads={data.recommendedReads} />
+        <AskOnboardlyCard sampleQuestion={data.sampleQuestion} />
+      </div>
+
+      <RecentActivityCard items={data.recentActivity} />
     </div>
   );
 }
