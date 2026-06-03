@@ -36,6 +36,7 @@ import {
   ArrowRight,
   BookOpen,
   Bot,
+  FileText,
   FolderKanban,
   MessageSquare,
   Pencil,
@@ -75,6 +76,12 @@ export default async function ProjectOverviewPage({
       title: "Ask the knowledge base",
       description: "RAG chat with cited sources.",
       icon: Bot,
+    },
+    {
+      href: `/projects/${project.id}/documents`,
+      title: "Documents",
+      description: "Uploaded PDFs, Markdown, DOCX, and TXT source files.",
+      icon: FileText,
     },
     {
       href: `/projects/${project.id}/members`,
