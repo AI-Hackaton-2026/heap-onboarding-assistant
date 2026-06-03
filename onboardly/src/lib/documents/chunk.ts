@@ -43,6 +43,9 @@ export function chunkText(text: string | null): TextChunk[] {
       chunks.push({ index: chunks.length, content });
     }
 
+    // Covered the whole text — stop.
+    if (boundary >= text.length) break;
+
     // Advance with overlap so adjacent chunks share context.
     start = Math.max(start + 1, boundary - OVERLAP);
   }
