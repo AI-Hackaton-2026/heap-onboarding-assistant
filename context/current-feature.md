@@ -1,4 +1,4 @@
-# Current Feature: Course Generation — Auto Repo, Embeddings Context & DB Persistence
+# Current Feature: Course Progress — DB Persistence & Completion Page
 
 ## Status
 
@@ -6,21 +6,26 @@ In Progress
 
 ## Goals
 
-- **Auto-fill GitHub repo** — when the user opens a project's course page, the GitHub repo field is pre-populated from `ProjectConnection.externalRef` (provider = GITHUB); no manual entry required.
-- **Embeddings context in generation** — query the project's `DocumentChunk` rows and include their text in the Gemini prompt alongside the GitHub repo context, so the course draws on uploaded docs and synced content, not just the repo files.
-- **DB persistence** — after course generation, save the full course to Prisma (`courses` → `modules` → `lessons` → `checklist_items` + `quizzes`). On subsequent visits, load from DB instead of re-generating. "Regenerate" clears the DB record and re-runs generation.
+- **DB progress saving** — when a user completes a lesson, upsert a `LessonProgress` row (status = COMPLETED) for their `ProjectMember` record; auto-create the `ProjectMember` if they don't have one yet.
+- **Frontend hydration** — on course load, fetch completed lesson IDs from DB and hydrate `completedLessons` state; localStorage stays as the in-session fallback for checklist/quiz answers within a lesson.
+- **Course completion flow** — when the user completes the last lesson, navigate to `/projects/[projectId]/course/completed`; that page shows a success message and gives two options: **Overview** (`/dashboard`) and **Ask Onboardly** (project chat at `/projects/[projectId]/chat`).
 
 ## Notes
 
-- GitHub repo field: `ProjectConnection.externalRef` where `provider = GITHUB` on the project. Pass as `initialRepo` prop to `CoursePlayer`.
-- Existing course: server component fetches the most recent `Course` for the project and passes it as `initialCourse` to `CoursePlayer`; if present, skip the generate form.
-- Document chunks: query `DocumentChunk` rows via their `Document` → `projectId` relation; take up to ~30 chunks, cap at 20KB total. Prepend as "Project Documentation" block in the prompt before the GitHub context.
-- DB save: after `generateCourse()` returns, call a `saveCourse()` helper that writes `Course` + nested `Module` + `Lesson` + `ChecklistItem` + `Quiz` rows via Prisma in a transaction.
-- DB delete: "Regenerate" deletes the existing `Course` row (cascades to all children), then re-runs generation.
-- localStorage is kept as an in-session cache (position + checklist + quiz answers) but the source of truth for course content moves to the DB.
-- Branch: `feature/course-db-embeddings`
+- `LessonProgress` already exists in the schema: `lessonId`, `memberId`, `status (ProgressStatus)`, `completedAt`.
+- `ProgressStatus` enum: `NOT_STARTED | IN_PROGRESS | COMPLETED`.
+- `ProjectMember` is keyed by `(projectId, userId)` — use `upsert` to auto-create on first progress save.
+- API: `GET /api/course/[projectId]/progress` → `{ completedLessonIds: string[] }` for the current user.
+- API: `POST /api/course/[projectId]/progress` → body `{ lessonId }`, marks lesson COMPLETED.
+- In `CoursePlayer`: on course mount, call GET progress and hydrate state. In `goNext`, call POST for the completed lesson. On last lesson complete, `router.push` to the completed page.
+- Completion page is a static server component — no DB calls needed (state already saved).
+- Branch: `feature/course-progress-db`
 
 ## History
+
+### Course Generation — Auto Repo, Embeddings Context & DB Persistence — Complete
+
+Done + pushed on branch `feature/course-db-embeddings` (PR open → `development`). Auto-fills GitHub repo field from `ProjectConnection.externalRef`, fetches up to 30 `DocumentChunk` rows as doc context for Gemini, saves generated course to Prisma (`Course → Module → Lesson → ChecklistItem + Quiz`), loads from DB on return visits, and "Regenerate" clears + re-generates. New files: `src/lib/course/db.ts`, `src/lib/course/chunks.ts`, `src/app/api/course/[projectId]/route.ts`.
 
 ### New-Hire Dashboard UI (Onboarding Overview) — Complete
 
