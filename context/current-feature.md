@@ -14,6 +14,37 @@
 
 ## History
 
+### Course Editing — Admin In-Place Course Editor (T-COURSE-2) — Complete
+
+Done + committed on branch `feature/course-editing` (off `development`).
+`npm run lint` + `npm run build` pass (0 errors). Lets **project admins** edit a
+generated course in place; the new-hire player stays read-only.
+
+- **Persistence (`src/lib/course/db.ts`):** new `upsertCourse(projectId, course)`
+  diffs the saved tree **by ID** inside a transaction — updates surviving
+  modules/lessons in place, creates new ones, deletes only the rows absent from
+  the incoming course (children + `LessonProgress` cascade away). This is the
+  whole point vs. the generation path's `saveCourseToDb` delete+recreate:
+  **lesson IDs are preserved so `LessonProgress` (keyed `lessonId_memberId`)
+  survives an edit.** Checklist/quiz rows carry no progress → replaced wholesale.
+- **API (`src/app/api/course/[projectId]/route.ts`):** added admin-gated `PUT`
+  (`requireProjectAdmin` → 403), body validated by `parseCourse`, calls
+  `upsertCourse`. Existing `DELETE` (regenerate) untouched.
+- **Validator (`src/lib/course/schema.ts`):** hand-rolled `parseCourse` (no Zod
+  dep — matches the existing hand-validation style); requires well-formed
+  ids/options/correctIndex, allows empty titles mid-edit.
+- **UI (`src/components/course/CoursePlayer.tsx`):** admin-only **Edit** toggle in
+  the footer → in-place `CourseEditor` (sticky Save/Cancel header). Edit module
+  titles + role; per lesson: title, markdown content (Textarea), checklist
+  (add/edit/remove), quiz (add/edit question + options, radio selects the correct
+  answer, remove). Add/delete modules + lessons; **up/down reorder** buttons
+  (no `@dnd-kit`). Single Save → `PUT` then commits to view state; Cancel reverts.
+  Fully responsive (single-column at 390, tokens only, light+dark).
+- **Page (`src/app/(auth)/projects/[projectId]/course/page.tsx`):** threads
+  `isAdmin` from `getProjectAccess` (ADMIN role) into `CoursePlayer`.
+- **Note:** browser happy-path test pending at completion time (lint+build green;
+  the upsert/progress-survival path is best verified live).
+
 ### Data Wiring — Replace Mock/Stub Content With Live Data — Complete
 
 Done + committed on branch `feature/data-wiring` (off `development` @ `e4f5038`).
