@@ -31,6 +31,7 @@ import {
 } from "@/generated/prisma/enums";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Markdown } from "@/components/ui/Markdown";
+import { SyncGitHubButton } from "@/components/projects/SyncGitHubButton";
 import {
   ArrowLeft,
   ArrowRight,
@@ -181,6 +182,9 @@ export default async function ProjectOverviewPage({
             canManage={isAdmin}
             installAppUrl={githubAppInstallUrl(project.id)}
           />
+          {isAdmin && githubConnection?.status === ConnectionStatus.CONNECTED ? (
+            <SyncGitHubButton projectId={project.id} />
+          ) : null}
           <div className="border-border bg-muted/20 flex items-start gap-3 rounded-xl border p-4">
             <span className="bg-primary/10 text-primary inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
               <MessageSquare className="size-5" />
