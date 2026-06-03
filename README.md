@@ -47,6 +47,59 @@ checklists, and quizzes.
 > Slack sync is included as a demo pipeline backed by mock workspace data. The
 > production Slack API client is intentionally left for a future integration.
 
+## Screenshots
+
+<p align="center">
+  <img src="./docs/screenshots/dashboard.png" alt="Onboardly new-hire dashboard" width="100%" />
+  <br />
+  <sub><strong>New-hire dashboard</strong> — today's focus, onboarding progress, recommended reads, and project access in one place.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="72%">
+      <img src="./docs/screenshots/project-workspace.png" alt="Onboardly project onboarding workspace" />
+    </td>
+    <td width="28%">
+      <img src="./docs/screenshots/dashboard-mobile.png" alt="Onboardly responsive mobile dashboard" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Project workspace</strong><br /><sub>Courses, chat, documents, members, and connected knowledge sources.</sub></td>
+    <td align="center"><strong>Responsive dashboard</strong><br /><sub>Onboarding tasks remain accessible on mobile.</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="./docs/screenshots/my-plan.png" alt="Onboardly My Plan onboarding lessons" />
+    </td>
+    <td width="50%">
+      <img src="./docs/screenshots/resources.png" alt="Onboardly project resources" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>My Plan</strong><br /><sub>A clear path through assigned lessons and progress.</sub></td>
+    <td align="center"><strong>Resources</strong><br /><sub>Project knowledge from repositories, documents, and synced sources.</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="./docs/screenshots/knowledge-base-chat.png" alt="Onboardly knowledge-base chat" />
+    </td>
+    <td width="50%">
+      <img src="./docs/screenshots/course-player.png" alt="Onboardly AI-generated course player" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Knowledge-base chat</strong><br /><sub>Grounded questions and cited answers from connected sources.</sub></td>
+    <td align="center"><strong>AI-generated course player</strong><br /><sub>Guided lessons, checklists, and knowledge checks.</sub></td>
+  </tr>
+</table>
+
 ## Product Flow
 
 1. Sign in with GitHub or create an email account.
