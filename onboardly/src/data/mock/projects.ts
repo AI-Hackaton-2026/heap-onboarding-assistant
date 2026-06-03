@@ -1,0 +1,19 @@
+// Mock projects for early frontend development (before real project CRUD exists).
+// The ID matches the demo seed in prisma/seed.ts — run `npm run db:seed` once
+// to create the corresponding row in Supabase.
+
+import type { Project } from "@/types/project";
+
+export const DEMO_PROJECT_ID = "bbbbbbbb-0000-0000-0000-000000000001";
+export const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+export const mockProjects: Project[] = [
+  {
+    id: DEMO_PROJECT_ID,
+    ownerId: DEMO_USER_ID,
+    name: "Onboardly Demo Project",
+    description: "Demo project for the AI onboarding assistant.",
+    status: "READY",
+    createdAt: "2026-06-02T09:00:00Z",
+  },
+];

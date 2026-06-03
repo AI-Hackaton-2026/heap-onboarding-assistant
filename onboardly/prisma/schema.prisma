@@ -1,0 +1,450 @@
+// Prisma schema for Onboardly.
+//
+// Prisma owns schema and typed CRUD. It connects as `postgres` and bypasses
+// Supabase RLS, so project membership checks are enforced in app logic.
+// Supabase keeps Auth, Storage, and pgvector. Vector similarity search (`<=>`)
+// is done via raw SQL, not the Prisma query builder.
+//
+// Connection URLs live in prisma.config.ts:
+//   - DATABASE_URL: transaction-mode pooler (port 6543) for app runtime
+//   - DIRECT_URL: session-mode pooler (port 5432) for schema operations
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  // vector = pgvector. The rest ship with Supabase by default; declaring them
+  // keeps schema tools from reporting drift on a fresh database.
+  extensions = [vector, pgcrypto, uuidOssp(map: "uuid-ossp"), pgStatStatements(map: "pg_stat_statements")]
+}
+
+// Identity and global roles
+
+/// App-owned mirror of a Supabase auth user. `id` is auth.users.id.
+model User {
+  id          String   @id @db.Uuid
+  email       String?
+  username    String?  @unique
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  appRole       AppRole?
+  identities    UserIdentity[]
+  ownedProjects Project[]       @relation("ProjectOwner")
+  memberships   ProjectMember[]
+  chats         Chat[]
+
+  @@map("users")
+}
+
+model AppRole {
+  userId    String      @id @map("user_id") @db.Uuid
+  role      AppRoleType
+  grantedAt DateTime    @default(now()) @map("granted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("app_roles")
+}
+
+enum AppRoleType {
+  SUPERADMIN
+
+  @@map("app_role_type")
+}
+
+/// Provider identity used for GitHub collaborator and future Slack matching.
+model UserIdentity {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  provider      Provider
+  externalId    String?  @map("external_id")
+  externalLogin String   @map("external_login")
+  avatarUrl     String?  @map("avatar_url")
+  isLogin       Boolean  @default(true) @map("is_login")
+  raw           Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@unique([provider, externalLogin])
+  @@index([externalLogin])
+  @@map("user_identities")
+}
+
+enum Provider {
+  GITHUB
+  SLACK
+
+  @@map("provider")
+}
+
+// Projects and membership
+
+/// A codebase/workspace context that knowledge and courses are built for.
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  ownerId     String        @map("owner_id") @db.Uuid
+  name        String
+  description String?
+  status      ProjectStatus @default(DRAFT)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  owner       User                @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     ProjectMember[]
+  connections ProjectConnection[]
+  syncJobs    SyncJob[]
+  documents   Document[]
+  courses     Course[]
+  chats       Chat[]
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  DRAFT
+  SYNCING
+  READY
+  ERROR
+
+  @@map("project_status")
+}
+
+/// A project-scoped user. Access is granted only by an ACTIVE membership.
+model ProjectMember {
+  id               String       @id @default(uuid()) @db.Uuid
+  projectId        String       @map("project_id") @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  email            String?
+  githubLogin      String?      @map("github_login")
+  displayName      String?      @map("display_name")
+  avatarUrl        String?      @map("avatar_url")
+  role             ProjectRole  @default(MEMBER)
+  source           MemberSource @default(GITHUB)
+  status           MemberStatus @default(ACTIVE)
+  assignedCourseId String?      @map("assigned_course_id") @db.Uuid
+  joinedAt         DateTime?    @map("joined_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+enum ProjectRole {
+  ADMIN
+  MEMBER
+
+  @@map("project_role")
+}
+
+enum MemberSource {
+  MANUAL
+  GITHUB
+  SLACK
+
+  @@map("member_source")
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+
+  @@map("member_status")
+}
+
+/// GitHub App or Slack App connection state for a project.
+model ProjectConnection {
+  id             String           @id @default(uuid()) @db.Uuid
+  projectId      String           @map("project_id") @db.Uuid
+  provider       Provider
+  externalRef    String?          @map("external_ref")
+  installationId String?          @map("installation_id")
+  config         Json?
+  status         ConnectionStatus @default(DISCONNECTED)
+  connectedAt    DateTime?        @map("connected_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider])
+  @@index([projectId])
+  @@map("project_connections")
+}
+
+enum ConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  ERROR
+
+  @@map("connection_status")
+}
+
+/// A sync attempt retained for the admin dashboard history.
+model SyncJob {
+  id         String     @id @default(uuid()) @db.Uuid
+  projectId  String     @map("project_id") @db.Uuid
+  kind       SyncKind
+  status     SyncStatus @default(RUNNING)
+  startedAt  DateTime   @default(now()) @map("started_at")
+  finishedAt DateTime?  @map("finished_at")
+  error      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("sync_jobs")
+}
+
+enum SyncKind {
+  GITHUB
+  SLACK
+  EMBEDDING
+  COURSE
+
+  @@map("sync_kind")
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  ERROR
+
+  @@map("sync_status")
+}
+
+// Knowledge ingestion
+
+/// Uploaded or synced source document.
+model Document {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  source      DocSource
+  title       String?
+  sourceRef   String?   @map("source_ref")
+  storagePath String?   @map("storage_path")
+  mimeType    String?   @map("mime_type")
+  rawText     String?   @map("raw_text")
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks  DocumentChunk[]
+
+  @@index([projectId])
+  @@map("documents")
+}
+
+enum DocSource {
+  GITHUB
+  SLACK
+  UPLOAD
+  REPO_SUMMARY
+
+  @@map("doc_source")
+}
+
+/// A document slice with its citation label.
+model DocumentChunk {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  chunkIndex Int      @map("chunk_index")
+  content    String
+  citation   String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document  Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  embedding Embedding?
+  citations MessageCitation[]
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+/// Gemini 768-dimensional vector for one document chunk.
+model Embedding {
+  chunkId   String                      @id @map("chunk_id") @db.Uuid
+  embedding Unsupported("vector(768)")?
+
+  chunk DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings")
+}
+
+// Courses and progress
+
+/// AI-generated onboarding course for a role within a project.
+model Course {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  roleName         String   @map("role_name")
+  title            String
+  description      String?
+  estimatedMinutes Int?     @map("estimated_minutes")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  modules Module[]
+
+  @@index([projectId])
+  @@map("courses")
+}
+
+model Module {
+  id        String   @id @default(uuid()) @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
+  title     String
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId])
+  @@map("modules")
+}
+
+model Lesson {
+  id        String   @id @default(uuid()) @db.Uuid
+  moduleId  String   @map("module_id") @db.Uuid
+  title     String
+  content   String?
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  module         Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  checklistItems ChecklistItem[]
+  quizzes        Quiz[]
+  progress       LessonProgress[]
+
+  @@index([moduleId])
+  @@map("lessons")
+}
+
+model ChecklistItem {
+  id       String @id @default(uuid()) @db.Uuid
+  lessonId String @map("lesson_id") @db.Uuid
+  text     String
+  position Int
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@map("checklist_items")
+}
+
+model Quiz {
+  id           String  @id @default(uuid()) @db.Uuid
+  lessonId     String  @map("lesson_id") @db.Uuid
+  question     String
+  options      Json
+  correctIndex Int     @map("correct_index")
+  explanation  String?
+  position     Int
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@map("quizzes")
+}
+
+/// Per-lesson progress used to derive onboarding completion percentages.
+model LessonProgress {
+  id          String         @id @default(uuid()) @db.Uuid
+  lessonId    String         @map("lesson_id") @db.Uuid
+  memberId    String         @map("member_id") @db.Uuid
+  status      ProgressStatus @default(NOT_STARTED)
+  completedAt DateTime?      @map("completed_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  lesson Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  member ProjectMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, memberId])
+  @@index([memberId])
+  @@map("lesson_progress")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("progress_status")
+}
+
+// Chat
+
+/// A RAG chat session scoped to a project and user.
+model Chat {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([projectId])
+  @@index([userId])
+  @@map("chats")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  chatId    String   @map("chat_id") @db.Uuid
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  chat      Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  citations MessageCitation[]
+
+  @@index([chatId])
+  @@map("chat_messages")
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+
+  @@map("chat_role")
+}
+
+/// A source label attached to an assistant response.
+model MessageCitation {
+  id        String  @id @default(uuid()) @db.Uuid
+  messageId String  @map("message_id") @db.Uuid
+  chunkId   String? @map("chunk_id") @db.Uuid
+  label     String
+
+  message ChatMessage    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chunk   DocumentChunk? @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+
+  @@index([messageId])
+  @@map("message_citations")
+}
