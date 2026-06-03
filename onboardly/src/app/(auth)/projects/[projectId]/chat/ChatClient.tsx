@@ -17,6 +17,14 @@ interface Message {
   isError?: boolean;
 }
 
+// Starter prompts for a project's knowledge base, shown in the empty state.
+const SUGGESTED_QUESTIONS = [
+  "How is this project structured?",
+  "Where do I start as a new contributor?",
+  "What are the key components and how do they connect?",
+  "How do I set up and run this locally?",
+];
+
 export function ChatClient({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -28,9 +36,9 @@ export function ChatClient({ projectId }: { projectId: string }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  async function sendMessage(e: React.FormEvent) {
+  async function sendMessage(e: React.FormEvent, preset?: string) {
     e.preventDefault();
-    const text = input.trim();
+    const text = (preset ?? input).trim();
     if (!text || loading) return;
 
     const userMsg: Message = {
@@ -111,6 +119,19 @@ export function ChatClient({ projectId }: { projectId: string }) {
               Explore architecture, conventions, or anything found in the
               connected knowledge base.
             </p>
+            <div className="mt-5 flex max-w-md flex-wrap justify-center gap-2">
+              {SUGGESTED_QUESTIONS.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={(e) => sendMessage(e, question)}
+                  disabled={loading}
+                  className="border-border bg-background hover:border-primary/40 hover:text-foreground text-muted-foreground rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-50"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

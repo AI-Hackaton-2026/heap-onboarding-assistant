@@ -20,6 +20,14 @@ export interface AssistantProject {
   name: string;
 }
 
+// Starter prompts shown in the empty state to give the user a way in.
+const SUGGESTED_QUESTIONS = [
+  "How do I set up the local environment?",
+  "Where can I find architecture docs?",
+  "How do I request repository access?",
+  "What should I focus on today?",
+];
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -53,9 +61,9 @@ export function AssistantClient({
     setInput("");
   }
 
-  async function sendMessage(e: React.FormEvent) {
+  async function sendMessage(e: React.FormEvent, preset?: string) {
     e.preventDefault();
-    const text = input.trim();
+    const text = (preset ?? input).trim();
     if (!text || loading) return;
 
     const userMsg: Message = {
@@ -159,6 +167,19 @@ export function AssistantClient({
               Answers are grounded in the selected project&apos;s documents,
               repo, and synced sources — with citations.
             </p>
+            <div className="mt-5 flex max-w-md flex-wrap justify-center gap-2">
+              {SUGGESTED_QUESTIONS.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={(e) => sendMessage(e, question)}
+                  disabled={loading}
+                  className="border-border bg-background hover:border-primary/40 hover:text-foreground text-muted-foreground rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-50"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

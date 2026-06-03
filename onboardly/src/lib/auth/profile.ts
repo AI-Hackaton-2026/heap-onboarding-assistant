@@ -34,6 +34,9 @@ export async function upsertUserIdentity(user: User): Promise<void> {
   const email = user.email ?? metaString(metadata, "email");
   const externalId =
     metaString(metadata, "provider_id") ?? metaString(metadata, "sub");
+  // Username is set only by the email/password register form (stored under
+  // user_metadata.username). GitHub logins don't carry one, so it stays null.
+  const username = metaString(metadata, "username");
 
   await prisma.user.upsert({
     where: { id: user.id },
@@ -41,10 +44,12 @@ export async function upsertUserIdentity(user: User): Promise<void> {
       ...(email ? { email } : {}),
       ...(displayName ? { displayName } : {}),
       ...(avatarUrl ? { avatarUrl } : {}),
+      ...(username ? { username } : {}),
     },
     create: {
       id: user.id,
       email,
+      username,
       displayName,
       avatarUrl,
     },

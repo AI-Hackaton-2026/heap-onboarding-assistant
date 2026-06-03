@@ -1,15 +1,16 @@
-// Login page — public route. Renders the GitHub + email/password login form.
-// Already-authenticated users are redirected to the dashboard (middleware also
-// enforces this; the server check avoids a flash of the form).
+// Register page — public route. Email/password account creation (display name,
+// username, email, password) with an optional "Sign up with GitHub" shortcut.
+// Already-authenticated users are redirected to the dashboard. Mirrors the login
+// page's layout via the shared AuthShell/AuthCard.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { RegisterForm } from "@/components/auth/RegisterForm";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthCard } from "@/components/auth/AuthCard";
 
-export default async function LoginPage({
+export default async function RegisterPage({
   searchParams,
 }: {
   searchParams: Promise<{ redirectTo?: string; error?: string }>;
@@ -29,25 +30,25 @@ export default async function LoginPage({
       ? redirectTo
       : "/dashboard";
 
-  const registerHref =
+  const loginHref =
     safeRedirect === "/dashboard"
-      ? "/register"
-      : `/register?redirectTo=${encodeURIComponent(safeRedirect)}`;
+      ? "/login"
+      : `/login?redirectTo=${encodeURIComponent(safeRedirect)}`;
 
   return (
     <AuthShell>
       <AuthCard
-        title="Welcome back"
-        description="Sign in to continue your onboarding."
+        title="Create your account"
+        description="Start your onboarding journey with personalized plans and company knowledge."
         error={error}
         footer={
           <>
-            Don&apos;t have an account?{" "}
-            <Link href={registerHref} className="text-primary font-medium hover:underline">
-              Create one
+            Already have an account?{" "}
+            <Link href={loginHref} className="text-primary font-medium hover:underline">
+              Sign in
             </Link>
             <span className="mt-1 block">
-              By continuing, you agree to Onboardly&apos;s{" "}
+              By creating an account, you agree to Onboardly&apos;s{" "}
               <Link href="/terms" className="hover:text-foreground underline underline-offset-2">
                 Terms of Service
               </Link>
@@ -56,7 +57,7 @@ export default async function LoginPage({
           </>
         }
       >
-        <LoginForm redirectTo={safeRedirect} />
+        <RegisterForm redirectTo={safeRedirect} />
       </AuthCard>
     </AuthShell>
   );
