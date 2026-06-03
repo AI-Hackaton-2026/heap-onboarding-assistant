@@ -8,7 +8,6 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  FolderGit2,
   CheckCircle2,
   AlertCircle,
   CircleDashed,
@@ -16,6 +15,14 @@ import {
   RefreshCw,
   Unplug,
 } from "lucide-react";
+
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -87,7 +94,7 @@ export function GitHubConnectionCard({
 
   return (
     <div className="border-border bg-muted/20 space-y-3 rounded-xl border p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           {owner ? (
             <Avatar className="size-10 shrink-0 rounded-xl">
@@ -101,7 +108,7 @@ export function GitHubConnectionCard({
             </Avatar>
           ) : (
             <span className="bg-primary/10 text-primary inline-flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <FolderGit2 className="size-5" />
+              <GitHubIcon className="size-5" />
             </span>
           )}
           <div className="min-w-0 space-y-1">
@@ -109,23 +116,25 @@ export function GitHubConnectionCard({
               GitHub repo
             </p>
             {repo ? (
-              <Link
-                href={`https://github.com/${repo}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium hover:underline"
-              >
-                <span className="truncate">{repo}</span>
-                <ExternalLink className="size-3.5 shrink-0" />
-              </Link>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                <Link
+                  href={`https://github.com/${repo}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+                >
+                  <span className="truncate">{repo}</span>
+                  <ExternalLink className="size-3.5 shrink-0" />
+                </Link>
+                <StatusLine
+                  status={status}
+                  repo={repo}
+                  verifiedWhen={verifiedWhen}
+                />
+              </div>
             ) : (
-              <p className="text-sm font-medium">No repository set</p>
+              <p className="text-sm font-medium">Not connected</p>
             )}
-            <StatusLine
-              status={status}
-              repo={repo}
-              verifiedWhen={verifiedWhen}
-            />
           </div>
         </div>
 
