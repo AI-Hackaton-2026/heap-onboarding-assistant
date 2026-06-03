@@ -56,7 +56,7 @@ function RepoRow({ repo }: { repo: GitHubRepo }) {
       <div className="shrink-0">
         {repo.ingestionReady ? (
           <Button variant="outline" size="sm" disabled>
-            Connected
+            Ingestion-ready
           </Button>
         ) : (
           <Button variant="outline" size="sm" asChild>

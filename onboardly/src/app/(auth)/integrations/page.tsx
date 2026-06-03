@@ -30,13 +30,14 @@ export default async function IntegrationsPage() {
           <CardHeader>
             <CardTitle>GitHub</CardTitle>
             <CardDescription>
-              Sync repositories into the knowledge base.
+              Sign in with GitHub to browse your repositories. Ingestion also
+              requires the Onboardly app installed on a repo (done per project).
             </CardDescription>
             <Badge
               className="mt-2 w-fit"
               variant={githubConnected ? "default" : "outline"}
             >
-              {githubConnected ? "Connected" : "Not connected"}
+              {githubConnected ? "Signed in with GitHub" : "Not signed in"}
             </Badge>
           </CardHeader>
           <CardContent>
@@ -47,7 +48,7 @@ export default async function IntegrationsPage() {
             ) : (
               <Button size="sm" asChild>
                 <Link href="/login?redirectTo=/integrations/github">
-                  Connect GitHub
+                  Sign in with GitHub
                 </Link>
               </Button>
             )}
